@@ -250,7 +250,11 @@ class PlayerViewModel @Inject constructor(
             try {
                 val song = database.songDao().getSong(storedLocalSongId(metadata.id.toString())).firstOrNull() ?: return@launch
                 localMetadataSync.syncSong(song, candidate = candidate)
-                lyricManager.loadLyrics(metadata, forceReload = true)
+                lyricManager.loadLyrics(
+                    metadata = metadata,
+                    forceReload = true,
+                    allowMetadataRefresh = false,
+                )
                 _localMetadataMessage.value = "已应用 ${candidate.source} 的信息"
             } finally {
                 _localMetadataBusy.value = false

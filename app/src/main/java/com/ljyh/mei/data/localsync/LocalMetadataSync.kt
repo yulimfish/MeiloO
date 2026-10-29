@@ -100,25 +100,17 @@ class LocalMetadataSync @Inject constructor(
             engine.search(storedSong.toMetadataQuery(), preference = SourcePreference(global = sources)).candidates
         } else listOf(candidate)
 
-        val metadata = candidate?.takeIf { it.source != MetadataSource.LRCLIB } ?: candidates.firstOrNull {
-            it.source != MetadataSource.LRCLIB && it.score >= MIN_METADATA_SCORE
-        }
         val lyric = candidate?.takeIf { it.lyrics?.isEmpty == false }
             ?: candidates.firstOrNull { it.lyrics?.isEmpty == false && it.score >= MIN_LYRIC_SCORE }
-
-        var updated = storedSong
-        if (metadata != null && metadata.source != MetadataSource.LRCLIB) {
-            val previous = updated
-            val artwork = metadata.artworkUrl?.takeIf(String::isNotBlank)
-            updated = updated.copy(
-                title = metadata.title.ifBlank { updated.title },
-                artist = metadata.artists.filter(String::isNotBlank).ifEmpty { updated.artist },
-                album = metadata.album?.takeIf(String::isNotBlank) ?: updated.album,
-                cover = if (!onlyMissing || updated.cover.isBlank()) artwork ?: updated.cover else updated.cover,
-                updatedAt = System.currentTimeMillis(),
-            )
-            if (updated != previous) database.songDao().updateSong(updated)
-        }
+        val update = selectMetadataUpdate(
+            song = storedSong,
+            candidates = candidates,
+            onlyMissing = onlyMissing,
+            minTextScore = if (candidate == null) MIN_METADATA_SCORE else Double.NEGATIVE_INFINITY,
+            minArtworkScore = if (candidate == null) MIN_METADATA_SCORE else Double.NEGATIVE_INFINITY,
+        )
+        val updated = mergeSyncedSong(storedSong, update, onlyMissing)
+        if (updated != storedSong) database.songDao().updateSong(updated)
         val lyrics = lyric?.lyrics
         if (lyrics != null && (!onlyMissing || existingLyric == null)) {
             val payload = lyricCachePayload(lyrics)
