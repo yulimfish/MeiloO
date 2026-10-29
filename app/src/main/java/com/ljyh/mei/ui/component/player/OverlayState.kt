@@ -14,6 +14,7 @@ sealed interface OverlayState {
     data class QQMusicSelection(
         val mediaMetadata: MediaMetadata
     ): OverlayState
+    data class LocalMetadataSelection(val mediaMetadata: MediaMetadata) : OverlayState
 
     data class AlbumArtist(
         val album: MediaMetadata.Album,
@@ -23,6 +24,7 @@ sealed interface OverlayState {
         val playlistTitle: String? = null,
         val playlistId: Long? = null,
         val viewportBounds: Rect? = null,
+        val isLocal: Boolean = false,
     ) : OverlayState
     data class SongInfo(val metadata: MediaMetadata): OverlayState
     data object MoreAction: OverlayState

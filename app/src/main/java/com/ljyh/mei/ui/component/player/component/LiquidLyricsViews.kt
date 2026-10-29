@@ -333,7 +333,8 @@ private fun KaraokeRevealText(
 }
 
 private fun activeLineIndex(lines: List<ISyncedLine>, position: Int): Int {
-    val direct = lines.indexOfLast { position >= it.start }
+    // PLAIN cache entries use hour-long static layout markers; they are not playback cues.
+    val direct = if (position < 0) -1 else lines.indexOfLast { position >= it.start }
     return direct.coerceAtLeast(0).coerceAtMost((lines.size - 1).coerceAtLeast(0))
 }
 

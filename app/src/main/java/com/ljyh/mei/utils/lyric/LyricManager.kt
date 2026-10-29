@@ -12,6 +12,15 @@ import com.ljyh.mei.data.model.qq.u.LyricResult
 import com.ljyh.mei.data.model.qq.u.SearchResult
 import com.ljyh.mei.data.model.room.CachedLyric
 import com.ljyh.mei.data.model.room.QQSong
+import com.ljyh.mei.data.model.room.localSongStorageId
+import com.ljyh.mei.data.localsync.EffectiveLyricSource
+import com.ljyh.mei.data.localsync.LocalMetadataSync
+import com.ljyh.mei.data.localsync.PLAIN_LYRIC_PARSER_TYPE
+import com.ljyh.mei.data.localsync.TrackSourceSelection
+import com.ljyh.mei.data.localsync.acceptsCachedLyricSource
+import com.ljyh.mei.data.localsync.parsePlainLyrics
+import com.ljyh.mei.ui.screen.meilo.MeiloLyricsSource
+import com.ljyh.mei.ui.screen.meilo.MeiloSettingsStore
 import com.ljyh.mei.data.network.Resource
 import com.ljyh.mei.data.repository.PlayerRepository
 import com.ljyh.mei.di.repository.CachedLyricRepository
@@ -56,6 +65,7 @@ class LyricManager @Inject constructor(
     private val cachedLyricRepository: CachedLyricRepository,
     private val duetDetector: DuetDetector,
     private val preloader: LyricPreloader,
+    private val localMetadataSync: LocalMetadataSync,
     @ApplicationContext private val context: Context
 ) {
 
@@ -192,12 +202,16 @@ class LyricManager @Inject constructor(
         preferredSource = knownSettings?.source
         preferredVariant = knownSettings?.variant
         _lyricOffsetMs.value = knownSettings?.offsetMs ?: 0
-        val memory = if (!forceReload) lyricCache[songId] else null
+        val memory = if (!forceReload && !metadata.isLocal) lyricCache[songId] else null
         publishRawLyricData(memory?.takeIf {
             settingsReady && it.matchesLyricPreference(preferredSource, preferredVariant)
         } ?: createDefaultLyricData("歌词加载中", source = LyricSource.Loading))
 
         fetchJob = scope.launch {
+            if (metadata.isLocal) {
+                loadLocalLyrics(metadata, generation, forceReload)
+                return@launch
+            }
             val settings = settingsMutex.withLock { readSettings(songId) }
             if (!isCurrentLoad(songId, generation)) return@launch
             settingsReady = true
@@ -269,6 +283,52 @@ class LyricManager @Inject constructor(
                 searchAndMatchBest(metadata, generation)
             }
         }
+    }
+
+    /** Local tracks use only sidecar/cache lyrics and the explicitly enabled metadata providers. */
+    private suspend fun loadLocalLyrics(metadata: MediaMetadata, generation: Long, forceReload: Boolean) {
+        val songId = metadata.id.toString()
+        val storedSongId = localSongStorageId(songId)
+        settingsReady = true
+        preferredSource = null
+        preferredVariant = null
+        _lyricOffsetMs.value = readSettings(songId).offsetMs
+        val settings = localMetadataSync.overrides(storedSongId).first()
+        val globalSettings = MeiloSettingsStore(context).settings.first()
+        val effectiveSource = when (settings.lyrics) {
+            TrackSourceSelection.INHERIT -> when (globalSettings.lyricsSource) {
+                MeiloLyricsSource.LOCAL -> EffectiveLyricSource.LOCAL
+                MeiloLyricsSource.LRCLIB -> EffectiveLyricSource.LRCLIB
+                MeiloLyricsSource.AUTO -> EffectiveLyricSource.AUTO
+            }
+            TrackSourceSelection.LOCAL -> EffectiveLyricSource.LOCAL
+            TrackSourceSelection.LRCLIB -> EffectiveLyricSource.LRCLIB
+            TrackSourceSelection.AUTO -> EffectiveLyricSource.AUTO
+            else -> EffectiveLyricSource.AUTO
+        }
+        val shouldFetch = forceReload || globalSettings.autoAnalysisSyncEnabled ||
+            (settings.cover != TrackSourceSelection.INHERIT && settings.cover != TrackSourceSelection.LOCAL) ||
+            (settings.lyrics != TrackSourceSelection.INHERIT && settings.lyrics != TrackSourceSelection.LOCAL)
+        if (shouldFetch) {
+            val song = com.ljyh.mei.di.AppDatabase.getDatabase(context).songDao().getSong(storedSongId).firstOrNull()
+            if (song != null) localMetadataSync.syncSong(song, onlyMissing = !forceReload)
+        }
+        if (!isCurrentLoad(songId, generation)) return
+        val cached = cachedLyricRepository.get(storedSongId).firstOrNull()
+            ?.takeIf { acceptsCachedLyricSource(it.sourceName, effectiveSource) }
+            ?.toLyricData()
+        val resolved = cached ?: createDefaultLyricData(
+            if (effectiveSource == EffectiveLyricSource.LOCAL) "暂无本地歌词" else "暂无匹配歌词",
+        )
+        publishRawLyricData(resolved)
+        lyricCache.remove(songId)
+        if (cached != null) {
+            lyricCache[songId] = resolved
+            trimCache()
+        }
+        netLyricResult.value = Resource.Error("Local metadata only")
+        qqLyricResult.value = Resource.Error("Local metadata only")
+        amLyricResult.value = Resource.Error("Local metadata only")
     }
 
     private fun isCurrentLoad(songId: String, generation: Long): Boolean =
@@ -947,6 +1007,7 @@ internal fun buildCacheInfo(
 internal fun CachedLyric.toLyricData(): LyricData? {
     var restoredVerbatim = isVerbatim
     val lyrics = when (parserType) {
+        PLAIN_LYRIC_PARSER_TYPE -> parsePlainLyrics(content)
         "TTML" -> TTMLParser().parse(content)
         "YRC" -> YRCParser.parse(content, translation)
         "QRC" -> {

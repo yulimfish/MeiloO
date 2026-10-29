@@ -110,6 +110,7 @@ class PlayerOverlayHandler(
             playlistTitle = connection.queueTitle.value,
             playlistId = connection.service.queueManager.playlistSource?.playlistId,
             viewportBounds = viewportBounds,
+            isLocal = stateContainer.mediaMetadata.value?.isLocal == true,
         )
     }
 
@@ -117,7 +118,9 @@ class PlayerOverlayHandler(
      * 显示QQ音乐选择弹窗
      */
     fun showQQMusicSelection(mediaMetadata: MediaMetadata) {
-        _currentOverlay.value = OverlayState.QQMusicSelection(mediaMetadata)
+        _currentOverlay.value = if (mediaMetadata.isLocal) {
+            OverlayState.LocalMetadataSelection(mediaMetadata)
+        } else OverlayState.QQMusicSelection(mediaMetadata)
     }
 
     /**

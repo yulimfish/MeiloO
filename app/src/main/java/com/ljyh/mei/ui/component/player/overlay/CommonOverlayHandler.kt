@@ -22,6 +22,7 @@ import com.ljyh.mei.ui.component.player.component.sheet.MoreActionsSheet
 import com.ljyh.mei.ui.component.player.component.sheet.PlayerActionSettingsSheet
 import com.ljyh.mei.ui.component.player.component.sheet.PlaylistBottomSheet
 import com.ljyh.mei.ui.component.player.component.sheet.QQMusicSelectSheet
+import com.ljyh.mei.ui.component.player.component.sheet.LocalMetadataSheet
 import com.ljyh.mei.ui.component.player.component.sheet.SleepTimerSheet
 import com.ljyh.mei.ui.component.player.component.sheet.SongInfoSheet
 import com.ljyh.mei.ui.component.player.state.PlayerStateContainer
@@ -42,6 +43,7 @@ import io.github.neoruaa.glasmio.icons.SfIcon
 import com.ljyh.mei.ui.local.LocalPlayerConnection
 import com.ljyh.mei.ui.screen.social.NeteaseShareSheet
 import com.ljyh.mei.utils.setClipboard
+import java.net.URLEncoder
 import timber.log.Timber
 
 /**
@@ -71,11 +73,26 @@ fun CommonOverlayHandler(
 
         is OverlayState.AlbumArtist -> {
             val onAlbumClick: (Long) -> Unit = { id ->
-                Screen.Album.navigate(navController) { addPath(id.toString()) }
+                if (overlay.isLocal) {
+                    Screen.LocalSongList.navigate(navController) {
+                        addPath("album")
+                        addPath(URLEncoder.encode(overlay.album.title, "UTF-8"))
+                    }
+                    overlayHandler.dismiss()
+                } else Screen.Album.navigate(navController) { addPath(id.toString()) }
                 sheetState?.collapse(spring(stiffness = Spring.StiffnessVeryLow))
             }
             val onArtistClick: (Long) -> Unit = { id ->
-                Screen.Artist.navigate(navController) { addPath(id.toString()) }
+                val name = overlay.artists.firstOrNull { it.id == id }?.name
+                if (overlay.isLocal && name != null) {
+                    Screen.LocalSongList.navigate(navController) {
+                        addPath("artist")
+                        addPath(URLEncoder.encode(name, "UTF-8"))
+                    }
+                    overlayHandler.dismiss()
+                } else if (!overlay.isLocal) {
+                    Screen.Artist.navigate(navController) { addPath(id.toString()) }
+                }
                 sheetState?.collapse(spring(stiffness = Spring.StiffnessVeryLow))
             }
             val anchor = overlay.anchorBounds
@@ -113,7 +130,9 @@ fun CommonOverlayHandler(
 
         is OverlayState.SongInfo -> {
             val qqSongId by produceState<String?>(null, overlay.metadata.id) {
-                value = stateContainer.playerViewModel.getQQSongId(overlay.metadata.id)
+                if (!overlay.metadata.isLocal) {
+                    value = stateContainer.playerViewModel.getQQSongId(overlay.metadata.id)
+                }
             }
             SongInfoSheet(
                 metadata = overlay.metadata,
@@ -127,6 +146,14 @@ fun CommonOverlayHandler(
                 viewmodel = playerViewModel,
                 mediaMetadata = overlay.mediaMetadata,
                 onDismiss = { overlayHandler.dismiss() }
+            )
+        }
+
+        is OverlayState.LocalMetadataSelection -> {
+            LocalMetadataSheet(
+                viewModel = playerViewModel,
+                mediaMetadata = overlay.mediaMetadata,
+                onDismiss = { overlayHandler.dismiss() },
             )
         }
 
@@ -172,7 +199,11 @@ fun CommonOverlayHandler(
                     overlayHandler.dismiss()
                 },
                 onActionClick = { action ->
-                    if (action == MoreAction.COMMENT || action == MoreAction.SONG_WIKI) {
+                    if (actionMetadata?.isLocal == true &&
+                        (action == MoreAction.COMMENT || action == MoreAction.SONG_WIKI)
+                    ) {
+                        android.widget.Toast.makeText(context, "本地歌曲没有在线评论或百科", android.widget.Toast.LENGTH_SHORT).show()
+                    } else if (action == MoreAction.COMMENT || action == MoreAction.SONG_WIKI) {
                         actionMetadata?.let { v->
                             val destination = if (action == MoreAction.COMMENT) Screen.Comment else Screen.SongWiki
                             destination.navigate(navController) {
@@ -190,7 +221,9 @@ fun CommonOverlayHandler(
                 viewModel = playerViewModel,
                 onFindLyrics = if (actionMetadata != null) {
                     {
-                        playerViewModel.searchQQSong(actionMetadata.title)
+                        if (actionMetadata.isLocal) {
+                            playerViewModel.searchLocalMetadata(actionMetadata)
+                        } else playerViewModel.searchQQSong(actionMetadata.title)
                         overlayHandler.showQQMusicSelection(actionMetadata)
                     }
                 } else null,
@@ -204,7 +237,12 @@ fun CommonOverlayHandler(
         }
 
         is OverlayState.Share -> {
-            NeteaseShareSheet(
+            if (overlay.metadata.isLocal) {
+                LaunchedEffect(overlay.metadata.id) {
+                    android.widget.Toast.makeText(context, "本地歌曲仅保留在设备中", android.widget.Toast.LENGTH_SHORT).show()
+                    overlayHandler.dismiss()
+                }
+            } else NeteaseShareSheet(
                 metadata = overlay.metadata,
                 onDismiss = overlayHandler::dismiss,
             )

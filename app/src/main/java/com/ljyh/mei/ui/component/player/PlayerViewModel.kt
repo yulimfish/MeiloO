@@ -36,6 +36,11 @@ import com.ljyh.mei.di.repository.ColorRepository
 import com.ljyh.mei.di.repository.LikeRepository
 import com.ljyh.mei.di.repository.QQSongRepository
 import com.ljyh.mei.playback.MediaUriProvider
+import com.ljyh.mei.data.localsync.LocalMetadataSync
+import com.ljyh.mei.data.localsync.TrackSourceOverride
+import com.ljyh.mei.data.localmetadata.MetadataCandidate
+import com.ljyh.mei.di.AppDatabase
+import com.ljyh.mei.data.model.room.localSongStorageId
 import com.ljyh.mei.ui.model.LyricCandidate
 import com.ljyh.mei.ui.model.LyricData
 import com.ljyh.mei.ui.model.MoreAction
@@ -78,6 +83,8 @@ class PlayerViewModel @Inject constructor(
     val lyricManager: LyricManager,
     private val mediaUriProvider: MediaUriProvider,
     private val collections: LibraryCollectionsRepository,
+    private val localMetadataSync: LocalMetadataSync,
+    private val database: AppDatabase,
 ) : ViewModel() {
     val searchResult: StateFlow<Resource<SearchResult>> = lyricManager.qqSearchResult
     val lyric: StateFlow<LyricData> = lyricManager.lyricData
@@ -148,6 +155,10 @@ class PlayerViewModel @Inject constructor(
         )
 
     fun getLike(id: Long) {
+        if (mediaMetadata?.isLocal == true || id < 0) {
+            _like.value = Resource.Success(false)
+            return
+        }
         val expectedSession = neteaseSessionFingerprint(AppContext.instance.dataStore[CookieKey].orEmpty())
         val key = id.toString()
         selectedLikeId = key
@@ -163,6 +174,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun like(id: String) {
+        if (mediaMetadata?.isLocal == true || (id.toLongOrNull() ?: 0L) < 0L) return
         val expectedSession = neteaseSessionFingerprint(AppContext.instance.dataStore[CookieKey].orEmpty())
         viewModelScope.launch {
             val result = repository.toggleLike(id, expectedSession)
@@ -185,6 +197,65 @@ class PlayerViewModel @Inject constructor(
         song: SearchResult.Request.Data.Body.ItemSong,
     ) {
         lyricManager.selectQQSongForLyric(metadata, song)
+    }
+
+    private val _localMetadataCandidates = MutableStateFlow<List<MetadataCandidate>>(emptyList())
+    val localMetadataCandidates = _localMetadataCandidates.asStateFlow()
+    private val _localMetadataBusy = MutableStateFlow(false)
+    val localMetadataBusy = _localMetadataBusy.asStateFlow()
+    private val _localMetadataMessage = MutableStateFlow<String?>(null)
+    val localMetadataMessage = _localMetadataMessage.asStateFlow()
+
+    private fun storedLocalSongId(mediaId: String): String = localSongStorageId(mediaId)
+
+    fun trackSourceOverrides(songId: String) = localMetadataSync.overrides(storedLocalSongId(songId))
+
+    fun saveTrackSourceOverrides(songId: String, override: TrackSourceOverride) {
+        viewModelScope.launch { localMetadataSync.setOverrides(storedLocalSongId(songId), override) }
+    }
+
+    fun searchLocalMetadata(metadata: MediaMetadata) {
+        if (!metadata.isLocal) return
+        viewModelScope.launch {
+            _localMetadataBusy.value = true
+            _localMetadataMessage.value = null
+            try {
+                val song = database.songDao().getSong(storedLocalSongId(metadata.id.toString())).firstOrNull()
+                if (song == null) {
+                    _localMetadataMessage.value = "找不到本地歌曲记录"
+                } else {
+                    val result = localMetadataSync.search(song)
+                    _localMetadataCandidates.value = result.candidates
+                    _localMetadataMessage.value = when {
+                        result.candidates.isNotEmpty() -> null
+                        result.failures.isNotEmpty() -> result.failures.joinToString("\n") {
+                            "${it.source}: ${it.message}"
+                        }
+                        else -> "未找到符合的信息来源，请检查全局或单曲来源设置"
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                _localMetadataMessage.value = error.message ?: "查询失败"
+            } finally {
+                _localMetadataBusy.value = false
+            }
+        }
+    }
+
+    fun applyLocalMetadata(metadata: MediaMetadata, candidate: MetadataCandidate) {
+        viewModelScope.launch {
+            _localMetadataBusy.value = true
+            try {
+                val song = database.songDao().getSong(storedLocalSongId(metadata.id.toString())).firstOrNull() ?: return@launch
+                localMetadataSync.syncSong(song, candidate = candidate)
+                lyricManager.loadLyrics(metadata, forceReload = true)
+                _localMetadataMessage.value = "已应用 ${candidate.source} 的信息"
+            } finally {
+                _localMetadataBusy.value = false
+            }
+        }
     }
 
     fun selectLyricCandidate(metadata: MediaMetadata, candidate: LyricCandidate) {
@@ -221,6 +292,7 @@ class PlayerViewModel @Inject constructor(
 
 
     fun refreshPlaylistChoices() {
+        if (mediaMetadata?.isLocal == true) return
         playlistChoicesJob?.cancel()
         playlistChoicesJob = viewModelScope.launch {
             collections.accounts.collectLatest { account ->
@@ -288,53 +360,8 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun downloadSong(metadata: MediaMetadata, context: android.content.Context, requestedQuality: MusicQuality? = null) {
-        viewModelScope.launch {
-            val quality = requestedQuality ?: try {
-                val saved = AppContext.instance.dataStore[DownloadQualityKey]
-                if (saved != null) com.ljyh.mei.constants.DownloadQuality.valueOf(saved).toMusicQuality()
-                else MusicQuality.EXHIGH
-            } catch (_: Exception) {
-                MusicQuality.EXHIGH
-            }
-
-            val result = playlistRepository.getSongUrlV1(
-                ids = listOf(metadata.id.toString()),
-                quality = quality
-            )
-
-            if (result is Resource.Success) {
-                val songData = result.data.fullSourceFor(metadata.id.toString())
-                val url = songData?.url
-                if (url != null) {
-                    val downloadPath = AppContext.instance.dataStore[DownloadPathKey]
-                        ?: com.ljyh.mei.utils.DownloadManager.getDefaultDownloadPath()
-
-                    com.ljyh.mei.utils.DownloadManager.enqueue(
-                        context = context,
-                        songs = listOf(
-                            com.ljyh.mei.playback.SongDownloadInfo(
-                                songId = metadata.id.toString(),
-                                url = url,
-                                songTitle = metadata.title,
-                                songArtist = metadata.artists.map { it.name },
-                                songAlbum = metadata.album.title,
-                                songCover = metadata.coverUrl,
-                                duration = metadata.duration,
-                                fileType = songData.encodeType,
-                                quality = songData.level,
-                            )
-                        ),
-                        playlistName = "单曲下载",
-                        downloadPath = downloadPath
-                    )
-                    android.widget.Toast.makeText(context, "已添加到下载队列", android.widget.Toast.LENGTH_SHORT).show()
-                } else {
-                    android.widget.Toast.makeText(context, "无法获取歌曲链接", android.widget.Toast.LENGTH_SHORT).show()
-                }
-            } else {
-                android.widget.Toast.makeText(context, "获取链接失败", android.widget.Toast.LENGTH_SHORT).show()
-            }
-        }
+        // Local files are already on device; MeiloO has no online-audio download path.
+        android.widget.Toast.makeText(context, "本地歌曲无需下载", android.widget.Toast.LENGTH_SHORT).show()
     }
 
     private val moreSortKey = stringPreferencesKey("moreActions.sort")

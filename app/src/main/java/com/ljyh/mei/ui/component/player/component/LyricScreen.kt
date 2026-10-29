@@ -653,7 +653,7 @@ private fun LyricSourceBadge(
         Icon(
             painter = painterResource(
                 when (source) {
-                    LyricSource.Empty, LyricSource.Loading -> R.drawable.empty
+                    LyricSource.Empty, LyricSource.Loading, LyricSource.Local, LyricSource.LRCLIB -> R.drawable.empty
                     LyricSource.NetEaseCloudMusic -> R.drawable.netease
                     LyricSource.QQMusic -> R.drawable.qq
                     LyricSource.AM -> R.drawable.am
