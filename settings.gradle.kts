@@ -37,14 +37,14 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "music"
+rootProject.name = "MeiloO"
 include(":app")
 
 // Local and CI source builds use a sibling checkout; CI provisions its pinned revision.
 if (providers.gradleProperty("glasmio.source").orNull == "true") {
     val glasmioDirectory = file("../Glasmio")
     require(glasmioDirectory.resolve("settings.gradle.kts").isFile) {
-        "-Pglasmio.source=true requires a Glasmio checkout beside MeiloX."
+        "-Pglasmio.source=true requires a Glasmio checkout beside MeiloO."
     }
     includeBuild(glasmioDirectory)
 }

@@ -89,12 +89,12 @@ android {
     testBuildType = providers.gradleProperty("mei.instrumentationBuildType").orElse("debug").get()
     defaultConfig {
         applicationId = providers.gradleProperty("mei.applicationId")
-            .orElse("com.neoruaa.meilox")
+            .orElse("com.neoruaa.meiloo")
             .get()
         minSdk = 33
         targetSdk = 37
-        versionCode = 16
-        versionName = "1.55.1"
+        versionCode = 1
+        versionName = "1.0.0"
         buildConfigField("long", "BUILD_NUMBER", "${buildNumber}L")
         buildConfigField("String", "BUILD_COMMIT_SHA", "\"$buildCommitSha\"")
         buildConfigField("boolean", "BUILD_SOURCE_DIRTY", buildSourceDirty.toString())
@@ -176,6 +176,7 @@ dependencies {
 
     implementation(libs.oboe)
     implementation(libs.androidx.core.ktx)
+    implementation("androidx.documentfile:documentfile:1.1.0")
     implementation(libs.bcprov.jdk18on)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
