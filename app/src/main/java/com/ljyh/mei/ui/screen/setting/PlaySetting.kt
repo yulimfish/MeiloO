@@ -158,10 +158,6 @@ fun PlaySetting(
                     stringResource(R.string.allow_concurrent_playback), "waveform",
                     allowConcurrentPlayback, onAllowConcurrentPlaybackChange,
                 )
-                ToggleRow(
-                    stringResource(R.string.cloud_shuffle), "shuffle", cloudShuffle, onCloudShuffleChange,
-                    description = stringResource(R.string.cloud_shuffle_description),
-                )
                 ToggleRow(stringResource(R.string.skip_unavailable), "waveform.slash", noAudioSource, onNoAudioSourceChange)
                 ToggleRow(stringResource(R.string.previous_behavior), "backward.fill", previousPlayback, onPreviousPlaybackChange)
                 ToggleRow(
@@ -174,22 +170,6 @@ fun PlaySetting(
                     restorePlaybackState, onRestorePlaybackStateChange,
                     description = stringResource(R.string.restore_playback_state_description),
                 )
-                ValueRow(stringResource(R.string.music_quality), "waveform") {
-                    GlasmioPopUpButton(
-                        selected = musicQuality,
-                        items = MusicQuality.entries,
-                        onSelected = { quality ->
-                            if (quality != musicQuality) {
-                                if (playerConnection != null) {
-                                    playerConnection.changeQuality(quality, preferOnlineSource = false)
-                                } else {
-                                    onMusicQualityChange(quality)
-                                }
-                            }
-                        },
-                        label = { "${it.explanation} · ${it.text}" },
-                    )
-                }
                 ValueRow(
                     title = stringResource(R.string.audio_output),
                     symbol = "speaker.wave.2.fill",
