@@ -81,6 +81,16 @@ class MeiloLibraryModelsTest {
     }
 
     @Test
+    fun `same album name remains separated by artist`() {
+        val entries = buildMeiloAlbums(listOf(
+            song("a", "One", "Artist A", "Greatest Hits", 1, 1),
+            song("b", "Two", "Artist B", "Greatest Hits", 1, 1),
+        ))
+        assertEquals(2, entries.size)
+        assertEquals(setOf("Artist A", "Artist B"), entries.map(MeiloAlbumEntry::routeArtists).toSet())
+    }
+
+    @Test
     fun `duration formatting supports hours and unknown values`() {
         assertEquals("2:03", formatMeiloDuration(123_000L))
         assertEquals("1:02:03", formatMeiloDuration(3_723_000L))

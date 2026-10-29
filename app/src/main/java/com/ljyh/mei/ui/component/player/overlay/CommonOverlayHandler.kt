@@ -75,8 +75,13 @@ fun CommonOverlayHandler(
             val onAlbumClick: (Long) -> Unit = { id ->
                 if (overlay.isLocal) {
                     Screen.LocalSongList.navigate(navController) {
-                        addPath("album")
-                        addPath(URLEncoder.encode(overlay.album.title, "UTF-8"))
+                        addPath("album_artist")
+                        addPath(
+                            URLEncoder.encode(
+                                "${overlay.album.title}\n${overlay.artists.map { it.name }.toSet().joinToString(" / ").ifBlank { "未知歌手" }}",
+                                "UTF-8",
+                            ),
+                        )
                     }
                     overlayHandler.dismiss()
                 } else Screen.Album.navigate(navController) { addPath(id.toString()) }

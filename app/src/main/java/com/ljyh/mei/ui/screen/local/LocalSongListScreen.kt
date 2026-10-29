@@ -104,7 +104,16 @@ fun LocalSongListScreen(
     }
     val db = AppDatabase.getDatabase(context)
 
+    val localSongs by db.songDao().getLocalSongs().collectAsState(initial = emptyList())
     val songs by when (filterType) {
+        "album_artist" -> remember(localSongs, filterValue) {
+            kotlinx.coroutines.flow.flowOf(localSongs.filter { song ->
+                val albumName = filterValue.substringBefore('\n')
+                val albumArtists = localSongs.filter { it.album == albumName && it.artist.any(song.artist::contains) }
+                    .flatMap { it.artist }.toSet()
+                song.album == albumName && albumArtists.joinToString(" / ").ifBlank { "未知歌手" } == filterValue.substringAfter('\n')
+            })
+        }
         "artist" -> db.songDao().getLocalSongsByArtist(filterValue)
         "album" -> db.songDao().getLocalSongsByAlbum(filterValue)
         "folder" -> db.songDao().getSongsByFolder(filterValue)

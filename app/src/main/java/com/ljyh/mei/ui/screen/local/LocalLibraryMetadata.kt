@@ -21,7 +21,10 @@ internal fun mergeScannedSong(existing: Song?, scanned: Song): Song = existing?.
     bitrate = scanned.bitrate ?: existing.bitrate,
     sampleRate = scanned.sampleRate ?: existing.sampleRate,
     folderPath = scanned.folderPath ?: existing.folderPath,
-    cover = existing.cover.ifBlank { scanned.cover },
+    title = if (existing.metadataOverride) existing.title else scanned.title,
+    artist = if (existing.metadataOverride) existing.artist else scanned.artist,
+    album = if (existing.metadataOverride) existing.album else scanned.album,
+    cover = if (existing.metadataOverride) existing.cover else scanned.cover,
     updatedAt = scanned.updatedAt,
 ) ?: scanned
 
@@ -31,6 +34,7 @@ internal fun Song.withMatchedMetadata(candidate: MediaMetadata): Song = copy(
     artist = candidate.artists.map { it.name }.filter(String::isNotBlank),
     album = candidate.album.title,
     cover = candidate.coverUrl.ifBlank { cover },
+    metadataOverride = true,
     updatedAt = System.currentTimeMillis(),
 )
 

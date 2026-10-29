@@ -26,6 +26,7 @@ class LocalLibraryTest {
     fun rescanKeepsMatchedMetadataAndDownloadIdentityWhileRefreshingFileFacts() {
         val downloaded = song(id = "999", source = SourceType.DOWNLOAD).copy(
             title = "Selected catalog title", cover = "https://cover", addedAt = 10L,
+            metadataOverride = true,
         )
         val scanned = song(id = "local_42").copy(
             title = "File tag title", duration = 181_000, fileSize = 4_000, updatedAt = 20L,
@@ -44,6 +45,17 @@ class LocalLibraryTest {
         assertEquals(48_000, merged.sampleRate)
         assertEquals(20L, merged.updatedAt)
         assertEquals(scanned, mergeScannedSong(null, scanned))
+    }
+
+    @Test
+    fun rescanRefreshesEmbeddedTagsWhenThereIsNoManualOverride() {
+        val existing = song().copy(title = "Old", artist = listOf("Old artist"), album = "Old album", cover = "old")
+        val scanned = song().copy(title = "New", artist = listOf("New artist"), album = "New album", cover = "new")
+        val merged = mergeScannedSong(existing, scanned)
+        assertEquals("New", merged.title)
+        assertEquals(listOf("New artist"), merged.artist)
+        assertEquals("New album", merged.album)
+        assertEquals("new", merged.cover)
     }
 
     @Test

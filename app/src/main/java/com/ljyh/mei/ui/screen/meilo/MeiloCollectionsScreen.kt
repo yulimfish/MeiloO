@@ -35,15 +35,17 @@ fun MeiloAlbumsScreen(
         onNavigateBack = onNavigateBack,
         bottomPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding(),
     ) {
-        items(albums, key = { it.routeName }) { album ->
+        items(albums, key = { it.routeName to it.routeArtists }) { album ->
             GlasmioListRow(
                 title = album.name,
                 subtitle = "${album.artists} · ${album.songCount} 首",
                 leading = { MeiloArtwork(album.cover, size = 52.dp, symbol = "opticaldisc") },
                 onClick = {
                     Screen.LocalSongList.navigate(navController) {
-                        addPath("album")
-                        addPath(URLEncoder.encode(album.routeName, "UTF-8"))
+                        addPath("album_artist")
+                        addPath(
+                            URLEncoder.encode("${album.routeName}\n${album.routeArtists}", "UTF-8"),
+                        )
                     }
                 },
             )

@@ -13,6 +13,7 @@ import com.ljyh.mei.data.locallibrary.LocalLibraryFolderRepository
 import com.ljyh.mei.data.locallibrary.localAudioExtension
 import com.ljyh.mei.data.locallibrary.localDocumentExistence
 import com.ljyh.mei.data.locallibrary.matchingSidecarLyricName
+import com.ljyh.mei.data.locallibrary.parseLocalArtists
 import com.ljyh.mei.data.locallibrary.shouldClearLocalLyricCache
 import com.ljyh.mei.data.locallibrary.shouldRetainLocalDocument
 import com.ljyh.mei.data.locallibrary.stableLocalSongId
@@ -171,7 +172,11 @@ internal class LocalLibraryScanner(private val context: Context, private val dat
                         addedAt = now,
                         updatedAt = now,
                     )
-                    scanned = readMetadata(scanned, candidate.document.uri, readArtwork = known?.cover.isNullOrBlank())
+                    scanned = readMetadata(
+                        scanned,
+                        candidate.document.uri,
+                        readArtwork = known?.metadataOverride != true || known.cover.isBlank(),
+                    )
                     val lyric = readSidecarLyric(candidate.lyric)
                     currentCoroutineContext().ensureActive()
                     var publication = Publication.MISSING
@@ -204,7 +209,8 @@ internal class LocalLibraryScanner(private val context: Context, private val dat
                                 if (shouldClearLocalLyricCache(lyric, cachedLyric?.sourceName)) {
                                     database.cachedLyricDao().delete(merged.id)
                                 }
-                                if (lyric != null && (cachedLyric == null || cachedLyric.sourceName in setOf("Local", "Empty"))) {
+                                // A real sidecar is authoritative when the user returns to local lyrics.
+                                if (lyric != null) {
                                     database.cachedLyricDao().insert(
                                         CachedLyric(
                                             songId = merged.id,
@@ -310,7 +316,7 @@ internal class LocalLibraryScanner(private val context: Context, private val dat
             } else null
             result = song.copy(
                 title = metadata(MediaMetadataRetriever.METADATA_KEY_TITLE) ?: song.title,
-                artist = metadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)?.let(::listOf) ?: song.artist,
+                artist = parseLocalArtists(metadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)).ifEmpty { song.artist },
                 album = metadata(MediaMetadataRetriever.METADATA_KEY_ALBUM) ?: song.album,
                 cover = artwork ?: song.cover,
                 duration = metadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.takeIf { it > 0 }

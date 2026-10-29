@@ -513,6 +513,12 @@ fun navigationEntry(
                         filterValue = URLDecoder.decode(name, "UTF-8")
                         title = filterValue.ifBlank { stringResource(com.ljyh.mei.R.string.local_music_all_songs) }
                     }
+                    "album_artist" -> {
+                        filterValue = URLDecoder.decode(name, "UTF-8")
+                        title = filterValue.substringBefore('\n').ifBlank {
+                            stringResource(com.ljyh.mei.R.string.local_music_all_songs)
+                        }
+                    }
                     else -> {
                         filterValue = name
                         title = stringResource(com.ljyh.mei.R.string.local_music_all_songs)

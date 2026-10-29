@@ -16,6 +16,7 @@ enum class MeiloSongSort(val label: String) {
 internal data class MeiloAlbumEntry(
     /** Existing LocalSongList album route/filter uses the original tag, including blanks. */
     val routeName: String,
+    val routeArtists: String,
     val name: String,
     val artists: String,
     val cover: String,
@@ -90,10 +91,18 @@ internal fun moveMeiloSong(order: List<String>, fromIndex: Int, toIndex: Int): L
 }
 
 internal fun buildMeiloAlbums(songs: List<Song>): List<MeiloAlbumEntry> = songs
-    .groupBy(Song::album)
-    .map { (routeName, albumSongs) ->
+    .groupBy { song ->
+        // A collaboration is a superset of the solo artist, not a different album.
+        val artists = songs.filter { other ->
+            other.album == song.album && other.artist.any(song.artist::contains)
+        }.flatMap { it.artist }.toSet()
+        song.album to artists
+    }
+    .map { (key, albumSongs) ->
+        val (routeName, routeArtists) = key
         MeiloAlbumEntry(
             routeName = routeName,
+            routeArtists = routeArtists.joinToString(" / ").ifBlank { "未知歌手" },
             name = routeName.ifBlank { "未知专辑" },
             artists = albumSongs.flatMap(Song::artist).distinct().joinToString(" / ").ifBlank { "未知歌手" },
             cover = albumSongs.firstOrNull { it.cover.isNotBlank() }?.cover.orEmpty(),

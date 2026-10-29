@@ -21,7 +21,9 @@ data class Song(
     val sampleRate: Int? = null,
     val folderPath: String? = null,
     val addedAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    /** True only after a user explicitly selects catalog metadata; scanned tag changes remain live. */
+    val metadataOverride: Boolean = false,
 )
 
 
