@@ -34,7 +34,7 @@ sealed interface VersionUpdateResult {
 
 /** Checks GitHub tags or downloadable main-branch CI builds off the Compose thread. */
 object VersionUpdateChecker {
-    private const val Repository = "NEORUAA/MeiloX"
+    private const val Repository = "yulimfish/MeiloO"
     private const val RepositoryUrl = "https://github.com/$Repository"
     private const val ApiUrl = "https://api.github.com/repos/$Repository"
     private const val TagsEndpoint = "$ApiUrl/tags?per_page=100"
@@ -275,7 +275,7 @@ object VersionUpdateChecker {
             ?: return null
         if (!expiration.isAfter(Instant.now())) return null
         val name = string("name") ?: return null
-        val match = Regex("^MeiloX-(.+)-${run.build.number}(?:\\.([1-9][0-9]*))?$")
+        val match = Regex("^MeiloO-(.+)-${run.build.number}(?:\\.([1-9][0-9]*))?$")
             .matchEntire(name) ?: return null
         if (parseVersion(match.groupValues[1]) == null) return null
         // A partial workflow rerun can retain an APK from an earlier build attempt.

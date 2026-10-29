@@ -138,7 +138,7 @@ fun AboutScreen(viewModel: AboutViewModel = hiltViewModel()) {
                             }
                         },
                 )
-                Text("MeiloX", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("MeiloO", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                 Text(
                     stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -180,6 +180,7 @@ fun AboutScreen(viewModel: AboutViewModel = hiltViewModel()) {
         }
         item {
             com.ljyh.mei.ui.screen.setting.SettingsGroup(stringResource(R.string.about_acknowledgements)) {
+                AboutEntry("music.note", "MeiloX", "原作与界面基础") { openUrl(context, "https://github.com/NEORUAA/MeiloX") }
                 AboutEntry("chevron.left.forwardslash.chevron.right", "Mei", stringResource(R.string.about_upstream_description)) { openUrl(context, "https://github.com/ljyh223/Mei") }
                 AboutEntry("iphone", "MeloX", stringResource(R.string.about_melox_description)) { openUrl(context, "https://github.com/youshen2/MeloX") }
                 AboutEntry("quote.bubble", "amll-ttml-db", stringResource(R.string.about_amll_description)) { openUrl(context, "https://github.com/Steve-xmh/amll-ttml-db") }
@@ -201,7 +202,7 @@ fun AboutScreen(viewModel: AboutViewModel = hiltViewModel()) {
         }
         item {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 24.dp).fillMaxWidth()) {
-                Text("MeiloX · ${LocalDate.now().year}", style = MaterialTheme.typography.labelSmall)
+                Text("MeiloO · ${LocalDate.now().year}", style = MaterialTheme.typography.labelSmall)
                 Text(
                     stringResource(R.string.about_compose),
                     style = MaterialTheme.typography.labelSmall,

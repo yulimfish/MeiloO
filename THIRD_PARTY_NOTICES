@@ -1,9 +1,13 @@
 Third-Party Notices
 ===================
 
-MeiloX is distributed under the GNU General Public License, version 3 (see
-LICENSE). The components below remain under their own terms. This file is a
-notice and does not replace any upstream license text.
+MeiloO is an independent derivative of NEORUAA/MeiloX and is distributed under
+the GNU General Public License, version 3 (see LICENSE). MeiloX and its upstream
+contributors retain their original copyrights:
+https://github.com/NEORUAA/MeiloX
+
+The components below remain under their own terms. This file is a notice and
+does not replace any upstream license text.
 
 AndroidLiquidGlass / Backdrop
 -----------------------------

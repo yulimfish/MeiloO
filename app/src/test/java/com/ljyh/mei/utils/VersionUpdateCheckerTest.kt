@@ -24,7 +24,7 @@ class VersionUpdateCheckerTest {
 
         assertEquals("beta #35.1", result.latestTag)
         assertEquals("beta #34.1", result.currentBuildLabel)
-        assertEquals("https://github.com/NEORUAA/MeiloX/actions/runs/1035#artifacts", result.releaseUrl)
+        assertEquals("https://github.com/yulimfish/MeiloO/actions/runs/1035#artifacts", result.releaseUrl)
         assertTrue(result.isBeta)
         assertEquals(2, requests.size)
         assertTrue(requests.first().contains("/workflows/main.yml/runs?branch=main&status=success"))
@@ -161,7 +161,7 @@ class VersionUpdateCheckerTest {
             artifact(35, repositoryId = 7),
             artifact(35, size = 0),
             artifact(35, attempt = 2),
-            artifact(35, name = "MeiloX-not-a-version-35.1"),
+            artifact(35, name = "MeiloO-not-a-version-35.1"),
         )
         for (artifact in invalidArtifacts) {
             assertEquals(
@@ -214,10 +214,10 @@ class VersionUpdateCheckerTest {
         } as VersionUpdateResult.UpdateAvailable
 
         assertEquals("v1.54.7", result.latestTag)
-        assertEquals("https://github.com/NEORUAA/MeiloX/releases/tag/v1.54.7", result.releaseUrl)
+        assertEquals("https://github.com/yulimfish/MeiloO/releases/tag/v1.54.7", result.releaseUrl)
         assertFalse(result.isBeta)
         assertEquals(null, result.currentBuildLabel)
-        assertEquals(listOf("https://api.github.com/repos/NEORUAA/MeiloX/tags?per_page=100"), requests)
+        assertEquals(listOf("https://api.github.com/repos/yulimfish/MeiloO/tags?per_page=100"), requests)
         assertEquals(
             VersionUpdateResult.UpToDate,
             VersionUpdateChecker.checkWithFetcher("1.54.7", false, localBuild()) { tags },
@@ -266,7 +266,7 @@ class VersionUpdateCheckerTest {
         assertTrue(result.isBeta)
         assertEquals(3, requests.size)
         assertEquals(
-            "https://api.github.com/repos/NEORUAA/MeiloX/compare/" +
+            "https://api.github.com/repos/yulimfish/MeiloO/compare/" +
                 "${installed.commitSha}...${commitSha(35)}?per_page=1",
             requests.last(),
         )
@@ -300,7 +300,7 @@ class VersionUpdateCheckerTest {
 
         assertFalse(result.comparisonKnown)
         assertEquals("beta #35.1", result.latestTag)
-        assertEquals("https://github.com/NEORUAA/MeiloX/actions/runs/1035#artifacts", result.releaseUrl)
+        assertEquals("https://github.com/yulimfish/MeiloO/actions/runs/1035#artifacts", result.releaseUrl)
     }
 
     @Test
@@ -440,13 +440,13 @@ class VersionUpdateCheckerTest {
         status: String = "completed",
         conclusion: String = "success",
         path: String = ".github/workflows/main.yml",
-        headRepository: String = "NEORUAA/MeiloX",
+        headRepository: String = "yulimfish/MeiloO",
         event: String = "push",
     ): String = """{
         "id":${1000 + number}, "run_number":$number, "run_attempt":$attempt,
         "head_branch":"$branch", "head_sha":"${commitSha(number)}", "path":"$path",
         "status":"$status", "conclusion":"$conclusion", "event":"$event",
-        "repository":{"id":123,"full_name":"NEORUAA/MeiloX"},
+        "repository":{"id":123,"full_name":"yulimfish/MeiloO"},
         "head_repository":{"id":123,"full_name":"$headRepository"}
     }"""
 
@@ -454,7 +454,7 @@ class VersionUpdateCheckerTest {
         number: Long,
         attempt: Int = 1,
         legacyName: Boolean = false,
-        name: String = "MeiloX-1.54.6-$number" + if (legacyName) "" else ".$attempt",
+        name: String = "MeiloO-1.54.6-$number" + if (legacyName) "" else ".$attempt",
         expired: Boolean = false,
         expiresAt: String = "2099-01-01T00:00:00Z",
         runId: Long = 1000 + number,
