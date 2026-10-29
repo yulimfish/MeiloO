@@ -104,8 +104,6 @@ import com.ljyh.mei.di.repository.HistoryRepository
 import com.ljyh.mei.di.repository.SongRepository
 import com.ljyh.mei.extensions.currentMetadata
 import com.ljyh.mei.extensions.mediaItems
-import com.ljyh.mei.playback.CacheManager.getCacheDataSourceFactory
-import com.ljyh.mei.playback.CacheManager.findFullyCachedPlaybackKey
 import com.ljyh.mei.playback.CacheManager.removePlaybackEntries
 import com.ljyh.mei.utils.CoilBitmapLoader
 import com.ljyh.mei.utils.dataStore
@@ -256,7 +254,7 @@ class MusicService : MediaLibraryService(),
                 }
             }
         }
-        playbackHistoryReporter = PlaybackHistoryReporter(meloXRepository, neteaseClientLogClient)
+        playbackHistoryReporter = PlaybackHistoryReporter(meloXRepository, neteaseClientLogClient, enabled = false)
         equalizerConfigurationState = EqualizerConfigurationState(this, scope)
         audioOutputMode = context.dataStore[AudioOutputModeKey].toEnum(AudioOutputMode.AudioTrack)
         usbAudioOutput = UsbAudioOutput(this) {
@@ -957,6 +955,7 @@ class MusicService : MediaLibraryService(),
             }
         }
 
+        if (mediaItem.metadata?.isLocal == true) return
         val songId = mediaItem.playbackHistorySongIdOrNull() ?: return
         val source = resolvePlaybackHistorySource(songId) ?: return
         val metadata = mediaItem.metadata
@@ -1271,9 +1270,7 @@ class MusicService : MediaLibraryService(),
     }
 
     private fun createDataSourceFactory(): DataSource.Factory {
-        val simpleCache = CacheManager.getSimpleCache(context)
-
-        return ResolvingDataSource.Factory(getCacheDataSourceFactory(context)) { dataSpec ->
+        return ResolvingDataSource.Factory(DefaultDataSource.Factory(context)) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media key")
             val quality = context.dataStore[MusicQualityKey]
                 ?.let(::normalizePlaybackQuality)
@@ -1286,15 +1283,6 @@ class MusicService : MediaLibraryService(),
                     .setKey(null)
                     .build()
             }
-            val fullyCachedKey = findFullyCachedPlaybackKey(simpleCache, mediaId, quality)
-            if (fullyCachedKey != null && !mediaUriProvider.isRejectedCachedSource(mediaId, fullyCachedKey)) {
-                Timber.tag("ResolvingDataSource").d("Fully cached on disk: $mediaId")
-                mediaUriProvider.rememberCachedSource(mediaId, quality, fullyCachedKey, dataSpec.uri)
-                return@Factory dataSpec.buildUpon()
-                    .setKey(fullyCachedKey)
-                    .build()
-            }
-
             runBlocking {
                 val resolved = mediaUriProvider.resolveMediaSource(mediaId, quality)
                 dataSpec.buildUpon()

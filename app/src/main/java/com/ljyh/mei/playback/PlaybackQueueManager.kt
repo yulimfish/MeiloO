@@ -895,19 +895,9 @@ class PlaybackQueueManager(
 
 
     private suspend fun loadSongDetails(ids: List<String>): List<MediaItem> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val response = apiService.getSongDetail(
-                    com.ljyh.mei.data.model.api.GetSongDetails(c = ids.joinToString(","))
-                )
-                response.songs.map { it.toMediaItem() }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to load song details", e)
-                emptyList()
-            }
-        }
+        // MeiloO never hydrates restored or placeholder queue entries from an online catalogue.
+        // Local MediaItems already contain complete tags; other entries remain unplayable.
+        return emptyList()
     }
 
     /**

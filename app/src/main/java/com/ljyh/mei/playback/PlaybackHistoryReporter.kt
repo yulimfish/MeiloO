@@ -22,6 +22,7 @@ import kotlinx.coroutines.coroutineScope
 internal class PlaybackHistoryReporter(
     private val repository: MeloXRepository,
     private val ncblClient: NeteaseClientLogClient,
+    private val enabled: Boolean = true,
 ) {
     private class ActivePlayback(
         val mediaId: String,
@@ -47,7 +48,7 @@ internal class PlaybackHistoryReporter(
         startedAtMs: Long,
         song: NcblSongInfo,
     ) {
-        if (songId <= 0L || source.sourceId <= 0L) return
+        if (!enabled || songId <= 0L || source.sourceId <= 0L) return
         synchronized(lock) {
             if (closed || activePlayback?.mediaId == mediaId) return
             val playback = ActivePlayback(mediaId, songId, source, startedAtMs, song)
@@ -62,6 +63,7 @@ internal class PlaybackHistoryReporter(
     }
 
     internal fun recordDuration(completed: CompletedPlaybackHistorySession, endedAtMs: Long) {
+        if (!enabled) return
         synchronized(lock) {
             if (closed) return
             val playback = activePlayback?.takeIf {

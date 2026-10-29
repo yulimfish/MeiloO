@@ -42,6 +42,7 @@ class LyricPreloader @Inject constructor(
      * @return 合并后的歌词数据，失败或无需预加载时返回 null
      */
     suspend fun preload(metadata: MediaMetadata): LyricData? {
+        if (metadata.isLocal) return null
         val songId = metadata.id.toString()
         return try {
             fetchAndMerge(metadata, songId)

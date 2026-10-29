@@ -225,48 +225,19 @@ class PlaybackQueueIntegrationTest {
     }
 
     @Test
-    fun visibleEntryHydrationRetriesMissingResultsAndSurvivesReorderingWithDuplicates() {
+    fun placeholderHydrationNeverRequestsOnlineSongDetails() {
         Fixture(placeholders = true).use { fixture ->
             val entryId = onMain { requireNotNull(fixture.player.getMediaItemAt(5).queueEntryId) }
-            fixture.response.set { emptyList() }
             runBlocking {
                 withTimeout(3_000) {
                     onMain { fixture.manager.loadMetadataForQueueEntries(listOf("autoplay_section", entryId)) }.join()
                 }
             }
-            onMain { assertTrue(isPlaceholderMediaItem(fixture.player.getMediaItemAt(5))) }
-
-            val requested = CountDownLatch(1)
-            val respond = CountDownLatch(1)
-            fixture.response.set { ids ->
-                requested.countDown()
-                check(respond.await(3, TimeUnit.SECONDS))
-                ids
+            onMain {
+                assertTrue(isPlaceholderMediaItem(fixture.player.getMediaItemAt(5)))
+                assertTrue(isPlaceholderMediaItem(fixture.player.getMediaItemAt(8)))
             }
-            val job = onMain { fixture.manager.loadMetadataForQueueEntries(listOf(entryId)) }
-            try {
-                assertTrue(requested.await(3, TimeUnit.SECONDS))
-                val expectedOrder = onMain {
-                    fixture.player.moveMediaItem(5, 10)
-                    fixture.player.playbackOrderIndices().map { fixture.player.getMediaItemAt(it).queueEntryId }
-                }
-                respond.countDown()
-                runBlocking { withTimeout(3_000) { job.join() } }
-                onMain {
-                    val duplicates = fixture.items().filter { it.mediaId == "6" }
-                    assertEquals(2, duplicates.size)
-                    assertTrue(duplicates.all { !isPlaceholderMediaItem(it) })
-                    assertEquals(2, duplicates.map { it.queueEntryId }.toSet().size)
-                    assertEquals(entryId, fixture.player.getMediaItemAt(10).queueEntryId)
-                    assertEquals("1", fixture.player.currentMediaItem?.mediaId)
-                    assertEquals(expectedOrder, fixture.player.playbackOrderIndices().map {
-                        fixture.player.getMediaItemAt(it).queueEntryId
-                    })
-                }
-                assertEquals(listOf(listOf("6"), listOf("6")), fixture.requests.toList())
-            } finally {
-                respond.countDown()
-            }
+            assertTrue(fixture.requests.isEmpty())
         }
     }
 

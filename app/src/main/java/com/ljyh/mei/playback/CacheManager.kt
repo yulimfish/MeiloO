@@ -15,14 +15,11 @@ import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERR
 import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
-import androidx.media3.datasource.okhttp.OkHttpDataSource
-import com.ljyh.mei.constants.UserAgent
 import com.ljyh.mei.constants.DefaultMusicCacheLimitMb
 import com.ljyh.mei.constants.MusicCacheLimitMbKey
 import com.ljyh.mei.utils.dataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import okhttp3.OkHttpClient
 import timber.log.Timber
 import java.io.File
 
@@ -36,19 +33,6 @@ object CacheManager {
 
     // 锁对象，用于同步
     private val LOCK = Any()
-
-    // Foreground decks and background readers reuse connections and TLS sessions.
-    private val mediaHttpClient by lazy {
-        OkHttpClient.Builder()
-            .addInterceptor { chain ->
-                chain.proceed(
-                    chain.request().newBuilder()
-                        .addHeader("User-Agent", UserAgent)
-                        .build()
-                )
-            }
-            .build()
-    }
 
     /**
      * 获取 SimpleCache 的单例。
@@ -88,11 +72,8 @@ object CacheManager {
     ): CacheDataSource.Factory {
         Timber.tag("SimpleCache").d("Creating CacheDataSource instance")
 
-        val okHttpDataSourceFactory = OkHttpDataSource.Factory(mediaHttpClient)
-
-        // 2. 【关键修复】使用 DefaultDataSource.Factory 包装 OkHttp
-        // 它能自动处理 file://, http://, https://, content:// 等所有协议
-        val defaultDataSourceFactory = DefaultDataSource.Factory(context, okHttpDataSourceFactory)
+        // No HTTP upstream: DefaultDataSource handles only device files and SAF content here.
+        val defaultDataSourceFactory = DefaultDataSource.Factory(context)
 
         // 3. 将包装后的工厂设为 CacheDataSource 的上游
         return CacheDataSource.Factory()
