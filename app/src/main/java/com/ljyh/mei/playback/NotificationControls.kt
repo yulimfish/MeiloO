@@ -20,12 +20,12 @@ import com.ljyh.mei.R
 import com.ljyh.mei.MainActivity
 import com.ljyh.mei.constants.NotificationAction
 
-internal const val NOTIFICATION_LEFT_COMMAND = "com.neoruaa.meilox.notification.LEFT"
-internal const val NOTIFICATION_RIGHT_COMMAND = "com.neoruaa.meilox.notification.RIGHT"
+internal const val NOTIFICATION_LEFT_COMMAND = "com.yulimfish.meiloo.notification.LEFT"
+internal const val NOTIFICATION_RIGHT_COMMAND = "com.yulimfish.meiloo.notification.RIGHT"
 internal const val FLOATING_LYRICS_BUTTON = "floatingLyrics"
 internal const val FLOATING_LYRICS_ENABLED = "floatingLyricsEnabled"
-internal const val ENABLE_FLOATING_LYRICS = "com.neoruaa.meilox.floatingLyrics.ENABLE"
-internal const val DISABLE_FLOATING_LYRICS = "com.neoruaa.meilox.floatingLyrics.DISABLE"
+internal const val ENABLE_FLOATING_LYRICS = "com.yulimfish.meiloo.floatingLyrics.ENABLE"
+internal const val DISABLE_FLOATING_LYRICS = "com.yulimfish.meiloo.floatingLyrics.DISABLE"
 
 private val useHyperOsNotificationIcons: Boolean by lazy {
     val versionName = if (Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)) {

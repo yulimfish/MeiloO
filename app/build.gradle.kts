@@ -89,7 +89,7 @@ android {
     testBuildType = providers.gradleProperty("mei.instrumentationBuildType").orElse("debug").get()
     defaultConfig {
         applicationId = providers.gradleProperty("mei.applicationId")
-            .orElse("com.neoruaa.meiloo")
+            .orElse("com.yulimfish.meiloo")
             .get()
         minSdk = 33
         targetSdk = 37

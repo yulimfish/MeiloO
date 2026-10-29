@@ -21,7 +21,7 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.neoruaa.meilox", appContext.packageName)
+        assertEquals(BuildConfig.APPLICATION_ID, appContext.packageName)
 
         val result=isWithinSameDayWindow(1736518123739)
         println(result)
