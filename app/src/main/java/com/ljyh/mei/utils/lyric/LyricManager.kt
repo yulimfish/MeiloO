@@ -173,7 +173,11 @@ class LyricManager @Inject constructor(
      * @param metadata 歌曲元数据
      * @param forceReload 是否强制重新拉取，true 时跳过缓存和 currentSongId 拦截
      */
-    fun loadLyrics(metadata: MediaMetadata, forceReload: Boolean = false) {
+    fun loadLyrics(
+        metadata: MediaMetadata,
+        forceReload: Boolean = false,
+        allowMetadataRefresh: Boolean = true,
+    ) {
         val songId = metadata.id.toString()
         if (!forceReload && currentSongId == songId) return
 
@@ -209,7 +213,7 @@ class LyricManager @Inject constructor(
 
         fetchJob = scope.launch {
             if (metadata.isLocal) {
-                loadLocalLyrics(metadata, generation, forceReload)
+                loadLocalLyrics(metadata, generation, forceReload, allowMetadataRefresh)
                 return@launch
             }
             val settings = settingsMutex.withLock { readSettings(songId) }
@@ -286,7 +290,12 @@ class LyricManager @Inject constructor(
     }
 
     /** Local tracks use only sidecar/cache lyrics and the explicitly enabled metadata providers. */
-    private suspend fun loadLocalLyrics(metadata: MediaMetadata, generation: Long, forceReload: Boolean) {
+    private suspend fun loadLocalLyrics(
+        metadata: MediaMetadata,
+        generation: Long,
+        forceReload: Boolean,
+        allowMetadataRefresh: Boolean,
+    ) {
         val songId = metadata.id.toString()
         val storedSongId = localSongStorageId(songId)
         settingsReady = true
@@ -306,9 +315,9 @@ class LyricManager @Inject constructor(
             TrackSourceSelection.AUTO -> EffectiveLyricSource.AUTO
             else -> EffectiveLyricSource.AUTO
         }
-        val shouldFetch = forceReload || globalSettings.autoAnalysisSyncEnabled ||
+        val shouldFetch = allowMetadataRefresh && (forceReload || globalSettings.autoAnalysisSyncEnabled ||
             (settings.cover != TrackSourceSelection.INHERIT && settings.cover != TrackSourceSelection.LOCAL) ||
-            (settings.lyrics != TrackSourceSelection.INHERIT && settings.lyrics != TrackSourceSelection.LOCAL)
+            (settings.lyrics != TrackSourceSelection.INHERIT && settings.lyrics != TrackSourceSelection.LOCAL))
         if (shouldFetch) {
             val song = com.ljyh.mei.di.AppDatabase.getDatabase(context).songDao().getSong(storedSongId).firstOrNull()
             if (song != null) localMetadataSync.syncSong(song, onlyMissing = !forceReload)

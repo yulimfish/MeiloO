@@ -35,6 +35,11 @@ internal fun selectLyricUpdate(
             createDefaultLyricData("没有歌词")
         } else candidate
     }
+    // A local/remote lyric cache becoming available is new content, not a lower-priority variant
+    // of the previous source's empty result. Empty/Loading must never pin a failed lookup.
+    if (current.source in setOf(LyricSource.Empty, LyricSource.Loading) &&
+        candidate.source !in setOf(LyricSource.Empty, LyricSource.Loading)
+    ) return candidate
     if (candidatePriority < currentPriority) return current
     if (candidatePriority == currentPriority && !alignmentFinished) return current
     return candidate

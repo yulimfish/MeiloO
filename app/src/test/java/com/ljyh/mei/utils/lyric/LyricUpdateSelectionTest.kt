@@ -139,6 +139,16 @@ class LyricUpdateSelectionTest {
     }
 
     @Test
+    fun localLyricsBecomingAvailableReplaceEarlierEmptyResult() {
+        val empty = createDefaultLyricData("没有歌词")
+        val local = LyricData(
+            source = LyricSource.Local,
+            lyricLine = LRCParser.parse("[00:00.00]Recovered local lyric", null),
+        )
+        assertSame(local, selectLyricUpdate(empty, local, true, true))
+    }
+
+    @Test
     fun identicalReparsedLyricsKeepTheDisplayedObject() {
         val current = qqLyrics(translation = "Translation")
         val reparsed = qqLyrics(translation = "Translation")
