@@ -120,8 +120,8 @@
     <string name="pip_pause">暂停</string>
     <string name="pip_next">下一首</string>
     <string name="lyrics_waiting">等待歌词</string>
-    <string name="app_name">MeiloX</string>
-    <string name="app_name_en">MeiloX</string>
+    <string name="app_name">MeiloO</string>
+    <string name="app_name_en">MeiloO</string>
     <string name="music_player">音乐播放器</string>
     <string name="error_no_internet">无网络连接</string>
     <string name="error_timeout">请求超时</string>
@@ -432,7 +432,7 @@
     <string name="app_tab_podcasts">播客</string>
     <string name="app_tab_explore">发现</string>
     <string name="app_tab_library">媒体库</string>
-    <string name="app_tab_library_songs">收藏歌曲</string>
+    <string name="app_tab_library_songs">歌曲</string>
     <string name="app_tab_library_playlists">收藏歌单</string>
     <string name="app_tab_library_podcasts">订阅播客</string>
     <string name="app_tab_library_downloads">下载</string>

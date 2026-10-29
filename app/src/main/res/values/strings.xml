@@ -120,8 +120,8 @@
     <string name="pip_pause">Pause</string>
     <string name="pip_next">Next</string>
     <string name="lyrics_waiting">Waiting for lyrics</string>
-    <string name="app_name">MeiloX</string>
-    <string name="app_name_en">MeiloX</string>
+    <string name="app_name">MeiloO</string>
+    <string name="app_name_en">MeiloO</string>
     <string name="music_player">Music Player</string>
     <string name="error_no_internet">No network connection</string>
     <string name="error_timeout">Timeout</string>
@@ -433,7 +433,7 @@
     <string name="app_tab_podcasts">Podcasts</string>
     <string name="app_tab_explore">Explore</string>
     <string name="app_tab_library">Library</string>
-    <string name="app_tab_library_songs">Favorite Songs</string>
+    <string name="app_tab_library_songs">Songs</string>
     <string name="app_tab_library_playlists">Favorite Playlists</string>
     <string name="app_tab_library_podcasts">Subscribed Podcasts</string>
     <string name="app_tab_library_downloads">Downloads</string>

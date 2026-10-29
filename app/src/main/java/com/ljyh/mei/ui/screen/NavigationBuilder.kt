@@ -71,6 +71,11 @@ import com.ljyh.mei.ui.screen.account.AccountConnectionsScreen
 import com.ljyh.mei.data.model.melox.AccountConnectionType
 import com.ljyh.mei.ui.screen.account.ListeningRankScreen
 import com.ljyh.mei.ui.screen.song.SongWikiScreen
+import com.ljyh.mei.ui.screen.meilo.MeiloSongsScreen
+import com.ljyh.mei.ui.screen.meilo.MeiloAlbumsScreen
+import com.ljyh.mei.ui.screen.meilo.MeiloArtistsScreen
+import com.ljyh.mei.ui.screen.meilo.MeiloSearchScreen
+import com.ljyh.mei.ui.screen.meilo.MeiloSettingsScreen
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,11 +84,11 @@ fun NavGraphBuilder.navigationBuilder(
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
     composable(Screen.Home.route) {
-        HomeHubScreen()
+        MeiloSongsScreen()
     }
 
     composable(Screen.Library.route) {
-        LibraryScreen()
+        MeiloArtistsScreen()
     }
 
     composable(
@@ -96,7 +101,7 @@ fun NavGraphBuilder.navigationBuilder(
     }
 
     composable(Screen.FindMusic.route) {
-        FindMusicScreen()
+        MeiloAlbumsScreen()
     }
 
     composable(
@@ -120,7 +125,7 @@ fun NavGraphBuilder.navigationBuilder(
     }
 
     composable(Screen.Search.route) {
-        SearchLandingScreen()
+        MeiloSearchScreen(onNavigateBack = navController::navigateUp)
     }
 
     composable(Screen.PrivateMessages.route) {
@@ -216,7 +221,7 @@ fun NavGraphBuilder.navigationBuilder(
     }
 
     composable(Screen.Setting.route) {
-        SettingScreen(scrollBehavior)
+        MeiloSettingsScreen()
     }
 
     composable(Screen.AppearanceSettings.route) {
@@ -413,19 +418,14 @@ fun navigationEntry(
     isNavigationTab: Boolean = false,
 ) {
     when {
-        route == Screen.Home.route -> HomeHubScreen()
-        route == Screen.Library.route -> LibraryScreen(
-            viewModel = hiltViewModel<LibraryViewModel>(
-                viewModelStoreOwner = LocalActivity.current as ComponentActivity,
-            ),
-            isNavigationTab = isNavigationTab,
-        )
+        route == Screen.Home.route -> MeiloSongsScreen()
+        route == Screen.Library.route -> MeiloArtistsScreen()
         route.startsWith("${Screen.LibraryCategory.route}/") -> {
             LibraryPage.entries.firstOrNull {
                 it.name == route.substringAfter("${Screen.LibraryCategory.route}/")
             }?.let { LibraryScreen(category = it) }
         }
-        route == Screen.FindMusic.route -> FindMusicScreen(isNavigationTab = isNavigationTab)
+        route == Screen.FindMusic.route -> MeiloAlbumsScreen()
         route.startsWith("${Screen.PlaylistCategory.route}/") -> {
             val arguments = route.substringAfter("${Screen.PlaylistCategory.route}/")
                 .split('/', limit = 2)
@@ -437,7 +437,7 @@ fun navigationEntry(
         }
         route == Screen.Podcasts.route -> PodcastScreen(isNavigationTab = isNavigationTab)
         route == Screen.CloudMusic.route -> CloudMusicScreen(isNavigationTab = isNavigationTab)
-        route == Screen.Search.route -> SearchLandingScreen()
+        route == Screen.Search.route -> MeiloSearchScreen()
         route == Screen.PrivateMessages.route -> ConversationsScreen()
         route == Screen.OfficialMessages.route -> ConversationsScreen(officialMessages = true)
         route == Screen.MessageContacts.route -> MessageContactsScreen()
@@ -459,7 +459,7 @@ fun navigationEntry(
         }
         route == Screen.ListeningStats.route -> ListeningStatsScreen()
         route == Screen.Test.route -> Test()
-        route == Screen.Setting.route -> SettingScreen(scrollBehavior)
+        route == Screen.Setting.route -> MeiloSettingsScreen()
         route == Screen.AppearanceSettings.route -> AppearanceSettings(scrollBehavior)
         route == Screen.GeneralSettings.route -> GeneralSettings()
         route == Screen.LyricsSettings.route -> LyricsSettings()
@@ -510,8 +510,8 @@ fun navigationEntry(
                         }
                     }
                     "artist", "album" -> {
-                        filterValue = name
-                        title = name
+                        filterValue = URLDecoder.decode(name, "UTF-8")
+                        title = filterValue.ifBlank { stringResource(com.ljyh.mei.R.string.local_music_all_songs) }
                     }
                     else -> {
                         filterValue = name

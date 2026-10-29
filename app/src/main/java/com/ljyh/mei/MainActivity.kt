@@ -313,7 +313,7 @@ class MainActivity : ComponentActivity() {
             val accentColorArgb by rememberPreference(AccentColorKey, DefaultAccentColorArgb)
             val appAppearance by rememberEnumPreference(AppAppearanceKey, AppAppearance.System)
             val (lastSelectedTab, setLastSelectedTab) = rememberPreference(LastSelectedTabKey, Index.Home.name)
-            val recognizeClipboardLinks by rememberPreference(RecognizeClipboardLinksKey, false)
+            val recognizeClipboardLinks = false
             val navigationPreferences by context.dataStore.data
                 .collectAsState<Preferences, Preferences?>(initial = null)
             val colorfulPageBackgrounds = navigationPreferences?.let {
@@ -346,26 +346,8 @@ class MainActivity : ComponentActivity() {
             var clipboardInspected by rememberSaveable { mutableStateOf(false) }
             var startupUpdateResult by remember { mutableStateOf<VersionUpdateResult?>(null) }
 
-            LaunchedEffect(Unit) {
-                try {
-                    val betaUpdatesEnabled = context.dataStore.data.first()[BetaUpdatesEnabledKey] ?: false
-                    val result = VersionUpdateChecker.check(
-                        BuildConfig.VERSION_NAME,
-                        betaUpdatesEnabled = betaUpdatesEnabled,
-                    )
-                    val currentBetaUpdatesEnabled = context.dataStore.data.first()[BetaUpdatesEnabledKey] ?: false
-                    if (result is VersionUpdateResult.UpdateAvailable &&
-                        result.comparisonKnown &&
-                        currentBetaUpdatesEnabled == betaUpdatesEnabled
-                    ) {
-                        startupUpdateResult = result
-                    }
-                } catch (cancellation: CancellationException) {
-                    throw cancellation
-                } catch (_: Exception) {
-                    return@LaunchedEffect
-                }
-            }
+            // Release checks are explicit in About; never contact an online music service at startup.
+            LaunchedEffect(Unit) { startupUpdateResult = null }
 
             var isMeasured by remember { mutableStateOf(false) }
             DisposableEffect(Unit) {
@@ -650,47 +632,8 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    val navigationItems = remember(
-                        podcastsEnabled,
-                        downloadsEnabled,
-                        cloudMusicEnabled,
-                        listeningHistoryEnabled,
-                        findMusicTabEnabled,
-                        libraryTabEnabled,
-                        podcastsTabEnabled,
-                        downloadsTabEnabled,
-                        cloudMusicTabEnabled,
-                        listeningHistoryTabEnabled,
-                        navigationTabOrder,
-                    ) {
-                        val available = buildList {
-                            add(Index.Home)
-                            if (findMusicTabEnabled) add(Index.FindMusic)
-                            if (podcastsEnabled && podcastsTabEnabled) add(Index.Podcasts)
-                            if (libraryTabEnabled) add(Index.Library)
-                            if (downloadsEnabled && downloadsTabEnabled) add(Index.Downloads)
-                            if (cloudMusicEnabled && cloudMusicTabEnabled) add(Index.Cloud)
-                            if (listeningHistoryEnabled && listeningHistoryTabEnabled) add(Index.History)
-                            add(Index.Settings)
-                        }
-                        val ordered = navigationTabOrder.split(',')
-                            .mapNotNull { name -> Index.entries.firstOrNull { it.name == name } }
-                            .filter { it in available }
-                            .distinct()
-                            .toMutableList()
-                        available.forEach { item ->
-                            if (item !in ordered) {
-                                val settingsIndex = ordered.indexOf(Index.Settings)
-                                if (settingsIndex >= 0 && item != Index.Settings) ordered.add(settingsIndex, item)
-                                else ordered.add(item)
-                            }
-                        }
-                        ordered.remove(Index.Home)
-                        ordered.add(0, Index.Home)
-                        ordered.remove(Index.Settings)
-                        ordered.add(Index.Settings)
-                        ordered
-                    }
+                    // MeiloO is intentionally local-only: four stable destinations, no online tabs.
+                    val navigationItems = remember { Index.DefaultOrder }
 
 
                     val currentNavigationItems = rememberUpdatedState(navigationItems)
@@ -1340,7 +1283,7 @@ class MainActivity : ComponentActivity() {
                                 },
                             )
                         }
-                        if (!pictureInPictureMode) NeteaseLegacyWebSessionNotice()
+                        // No account/session UI in the local-only player.
                         VersionUpdateAlert(
                             result = startupUpdateResult,
                             onDismiss = { startupUpdateResult = null },

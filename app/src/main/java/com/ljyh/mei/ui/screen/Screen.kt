@@ -71,7 +71,7 @@ sealed class Screen(val route:String) {
 
     companion object {
         val MainScreens: List<Screen>
-            get() = listOf(Home, FindMusic, Podcasts, Library, DownloadManage, CloudMusic, History, Search, Setting)
+            get() = listOf(Home, FindMusic, Library, Search, Setting)
     }
 }
 
@@ -81,10 +81,10 @@ enum class Index(
     val symbol: SfSymbol,
     val requiredFeature: ContentFeature? = null,
 ) {
-    Home(Screen.Home.route, R.string.app_tab_home, SfSymbol.HouseFilled),
-    FindMusic(Screen.FindMusic.route, R.string.app_tab_explore, SfSymbol.SafariFilled),
+    Home(Screen.Home.route, R.string.app_tab_library_songs, SfSymbol.MusicNote),
+    FindMusic(Screen.FindMusic.route, R.string.library_page_albums, SfSymbol.MusicNoteSquareStackFilled),
     Podcasts(Screen.Podcasts.route, R.string.app_tab_podcasts, SfSymbol.RadioFilled, ContentFeature.Podcasts),
-    Library(Screen.Library.route, R.string.app_tab_library, SfSymbol.MusicNoteSquareStackFilled),
+    Library(Screen.Library.route, R.string.search_type_artist, SfSymbol.PersonFilled),
     Downloads(Screen.DownloadManage.route, R.string.app_tab_library_downloads, SfSymbol.DownloadFilled, ContentFeature.Downloads),
     Cloud(Screen.CloudMusic.route, R.string.app_tab_library_cloud, SfSymbol.CloudFilled, ContentFeature.CloudMusic),
     History(Screen.History.route, R.string.app_tab_library_history, SfSymbol.ClockFilled, ContentFeature.ListeningHistory),
