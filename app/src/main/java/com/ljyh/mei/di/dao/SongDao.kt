@@ -18,7 +18,7 @@ interface SongDao {
     @Query("SELECT * FROM song")
     fun getAllSong(): Flow<List<Song>>
 
-    @Query("SELECT * FROM song WHERE path IS NOT NULL AND path != ''")
+    @Query("SELECT * FROM song WHERE sourceType = 'LOCAL' AND path IS NOT NULL AND path != ''")
     fun getLocalSongs(): Flow<List<Song>>
 
     @Query("SELECT * FROM song WHERE path = :path LIMIT 1")
@@ -40,22 +40,22 @@ interface SongDao {
     @Query("SELECT * FROM song WHERE sourceType = :sourceType")
     fun getSongsBySource(sourceType: SourceType): Flow<List<Song>>
 
-    @Query("SELECT * FROM song WHERE folderPath = :folderPath")
+    @Query("SELECT * FROM song WHERE sourceType = 'LOCAL' AND folderPath = :folderPath")
     fun getSongsByFolder(folderPath: String): Flow<List<Song>>
 
-    @Query("SELECT DISTINCT album FROM song WHERE album != '' AND path IS NOT NULL AND path != ''")
+    @Query("SELECT DISTINCT album FROM song WHERE sourceType = 'LOCAL' AND album != '' AND path IS NOT NULL AND path != ''")
     fun getLocalAlbums(): Flow<List<String>>
 
-    @Query("SELECT DISTINCT artist FROM song WHERE artist != '[]' AND path IS NOT NULL AND path != ''")
+    @Query("SELECT DISTINCT artist FROM song WHERE sourceType = 'LOCAL' AND artist != '[]' AND path IS NOT NULL AND path != ''")
     fun getLocalArtists(): Flow<List<String>>
 
-    @Query("SELECT * FROM song WHERE artist LIKE '%\"' || :artist || '\"%' AND path IS NOT NULL AND path != ''")
+    @Query("SELECT * FROM song WHERE sourceType = 'LOCAL' AND artist LIKE '%\"' || :artist || '\"%' AND path IS NOT NULL AND path != ''")
     fun getLocalSongsByArtist(artist: String): Flow<List<Song>>
 
     @Query("SELECT * FROM song WHERE artist LIKE '%' || :artist || '%' AND path IS NOT NULL AND path != ''")
     fun getLocalSongsByArtistContains(artist: String): Flow<List<Song>>
 
-    @Query("SELECT * FROM song WHERE album = :album AND path IS NOT NULL AND path != ''")
+    @Query("SELECT * FROM song WHERE sourceType = 'LOCAL' AND album = :album AND path IS NOT NULL AND path != ''")
     fun getLocalSongsByAlbum(album: String): Flow<List<Song>>
 
     @Query("SELECT * FROM song WHERE fileFormat IN ('flac','wav','ape','dsf','dff') AND path IS NOT NULL AND path != ''")

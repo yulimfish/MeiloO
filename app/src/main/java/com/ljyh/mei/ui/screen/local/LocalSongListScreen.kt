@@ -105,7 +105,7 @@ fun LocalSongListScreen(
     val db = AppDatabase.getDatabase(context)
 
     val songs by when (filterType) {
-        "artist" -> db.songDao().getLocalSongsByArtistContains(filterValue)
+        "artist" -> db.songDao().getLocalSongsByArtist(filterValue)
         "album" -> db.songDao().getLocalSongsByAlbum(filterValue)
         "folder" -> db.songDao().getSongsByFolder(filterValue)
         else -> db.songDao().getLocalSongs()
