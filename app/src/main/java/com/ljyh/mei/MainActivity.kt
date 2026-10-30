@@ -799,6 +799,12 @@ class MainActivity : ComponentActivity() {
                         focusManager.clearFocus()
                         focusSearchOnEntry = false
                     }
+                    val openSearch = {
+                        focusSearchOnEntry = true
+                        if (currentRoute != Screen.Search.route) {
+                            navController.navigate(Screen.Search.route)
+                        }
+                    }
 
                     LaunchedEffect(Unit) {
                         lifecycleScope.launch {
@@ -1013,6 +1019,7 @@ class MainActivity : ComponentActivity() {
                                                             route = meiRoute.route,
                                                             scrollBehavior = entryTopAppBarScrollBehavior,
                                                             searchQuery = query.text,
+                                                            onOpenSearch = openSearch,
                                                             isNavigationTab = entryNavigationItems.any {
                                                                 it.route == meiRoute.route
                                                             },
@@ -1165,12 +1172,7 @@ class MainActivity : ComponentActivity() {
                                         navController.navigateTopLevel(screen.route)
                                     }
                                 },
-                                onSearchClick = {
-                                    focusSearchOnEntry = true
-                                    if (currentRoute != Screen.Search.route) {
-                                        navController.navigate(Screen.Search.route)
-                                    }
-                                },
+                                onSearchClick = openSearch,
                                 backdrop = bottomControlsBackdrop,
                                 playerBottomSheetState = playerBottomSheetState,
                                 bottomMargin = navigationBottomMargin,

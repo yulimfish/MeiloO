@@ -15,7 +15,9 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
@@ -41,6 +43,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ljyh.mei.MainActivity
 import com.ljyh.mei.R
 import com.ljyh.mei.constants.PredictiveBackAnimationEnabledKey
+import com.ljyh.mei.data.model.room.Song
+import com.ljyh.mei.data.model.room.SourceType
+import com.ljyh.mei.di.AppDatabase
 import com.ljyh.mei.utils.dataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -53,15 +58,15 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Exercises real activity navigation; search requests are read-only and changed preferences are restored. */
+/** Exercises real activity navigation with restored preferences and local-only search fixtures. */
 @RunWith(AndroidJUnit4::class)
 class SearchNavigationInstrumentedTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
-    private var originalSearchHistory: String? = null
+    private var originalFixture: Song? = null
+    private var fixtureInstalled = false
 
     @Before
     fun startsAtHome() {
-        originalSearchHistory = runBlocking(Dispatchers.IO) { compose.activity.dataStore.data.first()[SearchHistoryKey] }
         // A new activity starts at Home; LastSelectedTab only affects the tab highlight.
         compose.waitUntil(timeoutMillis = 10_000) {
             compose.onAllNodesWithText(text(R.string.app_tab_home))
@@ -71,11 +76,13 @@ class SearchNavigationInstrumentedTest {
     }
 
     @After
-    fun restoreSearchHistory() = runBlocking<Unit>(Dispatchers.IO) {
-        compose.activity.dataStore.edit { preferences ->
-            originalSearchHistory?.let { preferences[SearchHistoryKey] = it }
-                ?: preferences.remove(SearchHistoryKey)
-        }
+    fun restoreLocalSearchFixture() = runBlocking<Unit>(Dispatchers.IO) {
+        if (!fixtureInstalled) return@runBlocking
+        val dao = AppDatabase.getDatabase(compose.activity).songDao()
+        dao.deleteById(SearchFixture.id)
+        originalFixture?.let { dao.insertSong(it) }
+        originalFixture = null
+        fixtureInstalled = false
     }
 
     @Test
@@ -147,43 +154,34 @@ class SearchNavigationInstrumentedTest {
     }
 
     @Test
-    fun recentQueriesCanBeReusedRemovedAndCleared() {
-        val query = "MeiloX search history check"
-        runBlocking(Dispatchers.IO) { compose.activity.clearSearchHistory() }
+    fun bottomToolbarIsTheOnlyInputAndFiltersLocalSongs() {
+        installLocalSearchFixture()
         openSearch()
-        searchInput().performTextInput(query)
-        searchInput().performImeAction()
-        compose.waitUntil(10_000) {
-            runBlocking(Dispatchers.IO) {
-                decodeSearchHistory(compose.activity.dataStore.data.first()[SearchHistoryKey]).firstOrNull() == query
-            }
-        }
-        navigateBack()
-        compose.onNodeWithText(query).assertIsDisplayed().performClick()
-        assertResultQuery(query)
-        navigateBack()
-        compose.onNodeWithContentDescription(compose.activity.getString(R.string.search_history_remove, query)).performClick()
-        compose.onNodeWithText(query).assertDoesNotExist()
-        runBlocking(Dispatchers.IO) {
-            compose.activity.recordSearchHistory("First recent query")
-            compose.activity.recordSearchHistory("Second recent query")
-        }
-        compose.onNodeWithText(text(R.string.search_history_clear)).performClick()
-        compose.waitUntil(5_000) {
-            runBlocking(Dispatchers.IO) { decodeSearchHistory(compose.activity.dataStore.data.first()[SearchHistoryKey]).isEmpty() }
-        }
-        compose.onNodeWithText(text(R.string.search_history_title)).assertDoesNotExist()
+
+        compose.onAllNodes(hasSetTextAction()).assertCountEquals(1)
+        compose.onNodeWithText("搜索本地曲库").assertIsDisplayed()
+        searchInput().performTextInput("no matching local song")
+        compose.onNodeWithText("没有匹配的本地歌曲").assertIsDisplayed()
+
+        searchInput().performTextReplacement(SearchFixture.query)
+        compose.onNodeWithText(SearchFixture.title).assertIsDisplayed()
+        compose.onNodeWithText("没有匹配的本地歌曲").assertDoesNotExist()
+
+        searchInput().performTextReplacement("")
+        compose.onNodeWithText(SearchFixture.title).assertDoesNotExist()
+        compose.onNodeWithText("搜索本地曲库").assertIsDisplayed()
+        compose.onAllNodes(hasSetTextAction()).assertCountEquals(1)
     }
 
     @Test
-    fun emptySearchBackRemovesTheToolbarWithTheDiscoveryPage() {
+    fun emptySearchBackRemovesTheToolbarWithTheLocalPrompt() {
         openSearch()
-        showDiscoveryCategory(R.string.search_browse_categories)
+        compose.onNodeWithText("搜索本地曲库").assertIsDisplayed()
 
         navigateBack()
 
         assertHome()
-        compose.onNodeWithText(text(R.string.search_browse_categories)).assertDoesNotExist()
+        compose.onNodeWithText("搜索本地曲库").assertDoesNotExist()
     }
 
     @Test
@@ -201,53 +199,27 @@ class SearchNavigationInstrumentedTest {
     }
 
     @Test
-    fun resultsBackRestoresDiscoveryWithoutRefocusingTheInput() {
+    fun imeSearchKeepsLocalResultsWithoutOpeningOnlineDetails() {
+        installLocalSearchFixture()
         openSearch()
-        searchInput().performTextInput("Codex navigation regression")
-        searchInput().performImeAction()
-        assertResultQuery("Codex navigation regression")
+        searchInput().performTextInput(SearchFixture.query)
+        compose.onNodeWithText(SearchFixture.title).assertIsDisplayed()
 
-        val updatedQuery = "Updated search query"
-        searchInput().performTextReplacement("  $updatedQuery  ")
         searchInput().performImeAction()
-        assertResultQuery(updatedQuery)
-        compose.waitUntil(5_000) {
-            runBlocking(Dispatchers.IO) {
-                decodeSearchHistory(compose.activity.dataStore.data.first()[SearchHistoryKey]).firstOrNull() == updatedQuery
-            }
-        }
-        searchInput().performClick().performTextReplacement("Unsubmitted draft")
-        compose.onNodeWithContentDescription(text(R.string.cancel)).performClick()
-        assertResultQuery(updatedQuery)
-
-        navigateBack()
 
         searchInput().assertIsDisplayed().assertIsNotFocused()
-        assertEmptyQuery()
-        showDiscoveryCategory(R.string.search_browse_categories)
-
-        navigateBack()
-        assertHome()
+        assertQuery(SearchFixture.query)
+        compose.onNodeWithText(SearchFixture.title).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.search_details_title)).assertDoesNotExist()
     }
 
     @Test
-    fun categoryNavigationHidesTheToolbarAndBackRestoresIt() {
-        openSearch()
-        showDiscoveryCategory(R.string.search_category_rankings)
-        // The IME can still be moving after scrolling; invoke the destination action directly.
-        compose.onNodeWithText(text(R.string.search_category_rankings))
-            .performSemanticsAction(SemanticsActions.OnClick) { it() }
+    fun songPageSearchEntryFocusesTheOnlyBottomInput() {
+        compose.onNodeWithContentDescription("搜索本地歌曲").performClick()
 
-        searchInput().assertDoesNotExist()
-
-        navigateBack()
-
-        searchInput().assertIsDisplayed().assertIsNotFocused()
-        assertEmptyQuery()
-        showDiscoveryCategory(R.string.search_browse_categories)
-
-        navigateBack()
-        assertHome()
+        searchInput().assertIsDisplayed().assertIsFocused()
+        compose.onAllNodes(hasSetTextAction()).assertCountEquals(1)
+        compose.onNodeWithText("搜索本地曲库").assertIsDisplayed()
     }
 
     @Test
@@ -361,9 +333,8 @@ class SearchNavigationInstrumentedTest {
         compose.onNodeWithContentDescription(text(R.string.app_tab_search)).assertIsDisplayed()
     }
 
-    private fun assertResultQuery(query: String) {
-        compose.onAllNodesWithText(text(R.string.search_details_title))[0].assertIsDisplayed()
-        searchInput().assertIsDisplayed().assertIsNotFocused().assert(
+    private fun assertQuery(query: String) {
+        searchInput().assertIsDisplayed().assert(
             SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString(query)),
         )
     }
@@ -374,18 +345,36 @@ class SearchNavigationInstrumentedTest {
         )
     }
 
-    private fun showDiscoveryCategory(resource: Int) {
-        // The static categories remain available while network recommendations load or fail.
-        compose.onNode(
-            hasScrollToNodeAction() and
-                SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange),
-        ).performScrollToNode(hasText(text(resource)))
-        compose.onNodeWithText(text(resource)).assertIsDisplayed()
+    private fun installLocalSearchFixture() {
+        runBlocking(Dispatchers.IO) {
+            val dao = AppDatabase.getDatabase(compose.activity).songDao()
+            originalFixture = dao.getById(SearchFixture.id)
+            dao.insertSong(SearchFixture.song)
+            fixtureInstalled = true
+        }
     }
 
     private fun navigateBack() {
         // Test destination changes directly; system Back may first dismiss the IME.
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.waitForIdle()
+    }
+
+    private object SearchFixture {
+        const val id = "meiloo-instrumented-search-fixture"
+        const val query = "search fixture 7f3a9"
+        const val title = "MeiloO $query"
+        val song = Song(
+            id = id,
+            title = title,
+            artist = listOf("Local Search Fixture Artist"),
+            album = "Local Search Fixture Album",
+            cover = "",
+            duration = 120_000L,
+            path = "content://meiloo.test/$id",
+            sourceType = SourceType.LOCAL,
+            addedAt = 0L,
+            updatedAt = 0L,
+        )
     }
 }

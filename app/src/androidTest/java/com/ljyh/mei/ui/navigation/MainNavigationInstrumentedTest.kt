@@ -137,22 +137,15 @@ class MainNavigationInstrumentedTest {
     }
 
     @Test
-    fun podcastsOpenedFromSearchRemainSecondaryAfterRecreation() = withNavigationPreferences {
+    fun searchRemainsSecondaryAfterRecreation() = withNavigationPreferences {
         compose.onNodeWithContentDescription(text(R.string.app_tab_search)).performClick()
-        compose.onNode(
-            hasScrollToNodeAction() and
-                SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange),
-        ).performScrollToNode(hasText(text(R.string.search_category_podcasts)))
-        // The IME can still be moving after scrolling; invoke the destination action directly.
-        compose.onNodeWithText(text(R.string.search_category_podcasts))
-            .performSemanticsAction(SemanticsActions.OnClick) { it() }
-        assertDestinationChrome(Index.Podcasts, topLevel = false)
+        compose.onNode(hasSetTextAction()).assertIsDisplayed()
 
         compose.activityRule.scenario.recreate()
 
-        assertDestinationChrome(Index.Podcasts, topLevel = false)
-        compose.onNodeWithContentDescription(text(R.string.navigation_back)).performClick()
         compose.onNode(hasSetTextAction()).assertIsDisplayed()
+        compose.onNodeWithContentDescription(text(R.string.cancel)).performClick()
+        compose.onNode(hasSetTextAction()).assertDoesNotExist()
     }
 
     @Test

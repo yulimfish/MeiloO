@@ -85,7 +85,7 @@ fun NavGraphBuilder.navigationBuilder(
     searchQuery: String = "",
 ) {
     composable(Screen.Home.route) {
-        MeiloSongsScreen()
+        MeiloSongsScreen(onOpenSearch = { navController.navigate(Screen.Search.route) })
     }
 
     composable(Screen.Library.route) {
@@ -416,11 +416,12 @@ fun NavGraphBuilder.navigationBuilder(
 fun navigationEntry(
     route: String,
     scrollBehavior: TopAppBarScrollBehavior,
+    onOpenSearch: () -> Unit,
     isNavigationTab: Boolean = false,
     searchQuery: String = "",
 ) {
     when {
-        route == Screen.Home.route -> MeiloSongsScreen()
+        route == Screen.Home.route -> MeiloSongsScreen(onOpenSearch = onOpenSearch)
         route == Screen.Library.route -> MeiloArtistsScreen()
         route.startsWith("${Screen.LibraryCategory.route}/") -> {
             LibraryPage.entries.firstOrNull {
