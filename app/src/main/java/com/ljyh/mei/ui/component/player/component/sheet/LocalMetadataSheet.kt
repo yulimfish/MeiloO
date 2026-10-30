@@ -23,6 +23,7 @@ import com.ljyh.mei.data.localsync.TrackSourceSelection
 import com.ljyh.mei.data.model.MediaMetadata
 import com.ljyh.mei.ui.component.player.PlayerViewModel
 import com.ljyh.mei.ui.component.sheet.rememberMeiloXSheetDismissal
+import com.ljyh.mei.ui.screen.meilo.MeiloChoiceCard
 import io.github.neoruaa.glasmio.ui.GlasmioBottomSheet
 import io.github.neoruaa.glasmio.ui.GlasmioButton
 import io.github.neoruaa.glasmio.ui.GlasmioCard
@@ -70,40 +71,35 @@ fun LocalMetadataSheet(
                 )
             }
             item {
-                GlasmioGroupedList {
-                    GlasmioListRow(
-                        title = "封面 / 信息来源",
-                        detail = overrides.cover.label(),
-                        systemName = "photo",
-                        showTopSeparator = false,
-                        onClick = {
-                            val values = listOf(
-                                TrackSourceSelection.INHERIT, TrackSourceSelection.AUTO,
-                                TrackSourceSelection.LOCAL, TrackSourceSelection.ITUNES,
-                                TrackSourceSelection.MUSICBRAINZ,
-                            )
-                            viewModel.saveTrackSourceOverrides(
-                                songId,
-                                overrides.copy(cover = values.next(overrides.cover)),
-                            )
-                        },
-                    )
-                    GlasmioListRow(
-                        title = "歌词来源",
-                        detail = overrides.lyrics.label(),
-                        systemName = "quote.bubble",
-                        onClick = {
-                            val values = listOf(
-                                TrackSourceSelection.INHERIT, TrackSourceSelection.AUTO,
-                                TrackSourceSelection.LOCAL, TrackSourceSelection.LRCLIB,
-                            )
-                            viewModel.saveTrackSourceOverrides(
-                                songId,
-                                overrides.copy(lyrics = values.next(overrides.lyrics)),
-                            )
-                        },
-                    )
-                }
+                MeiloChoiceCard(
+                    title = "封面 / 信息来源",
+                    symbol = "photo",
+                    selected = overrides.cover,
+                    values = listOf(
+                        TrackSourceSelection.INHERIT, TrackSourceSelection.AUTO,
+                        TrackSourceSelection.LOCAL, TrackSourceSelection.ITUNES,
+                        TrackSourceSelection.MUSICBRAINZ,
+                    ),
+                    label = { it.label() },
+                    onSelected = { source ->
+                        viewModel.saveTrackSourceOverrides(songId, overrides.copy(cover = source))
+                    },
+                )
+            }
+            item {
+                MeiloChoiceCard(
+                    title = "歌词来源",
+                    symbol = "quote.bubble",
+                    selected = overrides.lyrics,
+                    values = listOf(
+                        TrackSourceSelection.INHERIT, TrackSourceSelection.AUTO,
+                        TrackSourceSelection.LOCAL, TrackSourceSelection.LRCLIB,
+                    ),
+                    label = { it.label() },
+                    onSelected = { source ->
+                        viewModel.saveTrackSourceOverrides(songId, overrides.copy(lyrics = source))
+                    },
+                )
             }
             item {
                 GlasmioButton(
@@ -128,7 +124,7 @@ fun LocalMetadataSheet(
             if (!busy && candidates.isEmpty()) {
                 item {
                     Text(
-                        "选择“自动”会综合多个来源；选择“内嵌与本地”只使用文件已有信息。点击来源名称可循环切换。",
+                        "选择“自动”会综合多个来源；选择“内嵌与本地”只使用文件已有信息。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -170,6 +166,3 @@ private fun TrackSourceSelection.label(): String = when (this) {
     TrackSourceSelection.MUSICBRAINZ -> "MusicBrainz / CAA"
     TrackSourceSelection.LRCLIB -> "LRCLIB"
 }
-
-private fun List<TrackSourceSelection>.next(current: TrackSourceSelection): TrackSourceSelection =
-    this[(indexOf(current).takeIf { it >= 0 } ?: 0).plus(1).mod(size)]
