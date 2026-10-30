@@ -13,7 +13,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.view.WindowManager
-import android.net.Uri
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -222,7 +221,6 @@ import com.ljyh.mei.ui.screen.Index
 import com.ljyh.mei.ui.screen.Screen
 import com.ljyh.mei.ui.screen.account.NeteaseLegacyWebSessionNotice
 import com.ljyh.mei.ui.screen.navigationEntry
-import com.ljyh.mei.ui.screen.search.SearchScreen
 import com.ljyh.mei.ui.navigation.MeiNavEntryViewModelStoreOwner
 import com.ljyh.mei.ui.navigation.MeiNavigator
 import com.ljyh.mei.ui.navigation.MeiRoute
@@ -721,12 +719,6 @@ class MainActivity : ComponentActivity() {
                     val playerDismissed by remember(playerBottomSheetState) {
                         derivedStateOf { playerBottomSheetState.isDismissed }
                     }
-                    val searchResultsBottomPadding = remember(searchBottomInsets, density, playerDismissed) {
-                        searchBottomInsets.add(
-                            WindowInsets(bottom = NavigationBarHeight - NavigationBarBottomMargin +
-                                if (playerDismissed) 0.dp else MiniPlayerHeight),
-                        ).asPaddingValues(density)
-                    }
                     val pageDarkAppearance = currentRoute?.let { pageAppearanceOverrides[it]?.second }
                     val statusBarDark = isPlayerPage || (pageDarkAppearance ?: effectiveDark)
                     val windowConfiguration = LocalConfiguration.current
@@ -804,13 +796,8 @@ class MainActivity : ComponentActivity() {
                     }
 
                     val onSearch: (String) -> Unit = {
-                        if (it.isNotEmpty()) {
-                            clearSearchInput()
-                            Screen.SearchResult.navigate(navController){
-                                addPath(Uri.encode(it))
-                                addPath("1") // 默认所搜单曲
-                            }
-                        }
+                        focusManager.clearFocus()
+                        focusSearchOnEntry = false
                     }
 
                     LaunchedEffect(Unit) {
@@ -1025,6 +1012,7 @@ class MainActivity : ComponentActivity() {
                                                         navigationEntry(
                                                             route = meiRoute.route,
                                                             scrollBehavior = entryTopAppBarScrollBehavior,
+                                                            searchQuery = query.text,
                                                             isNavigationTab = entryNavigationItems.any {
                                                                 it.route == meiRoute.route
                                                             },
@@ -1105,38 +1093,6 @@ class MainActivity : ComponentActivity() {
                                             },
                                         )
                                     }
-                                    AnimatedVisibility(
-                                        visible = active,
-                                        enter = fadeIn(),
-                                        exit = fadeOut(),
-                                    ) {
-                                        Box(
-                                            Modifier
-                                                .fillMaxSize()
-                                                .background(
-                                                    if (query.text.isEmpty()) Color.Transparent
-                                                    else MaterialTheme.colorScheme.background,
-                                                ),
-                                        ) {
-                                            if (query.text.isNotEmpty()) {
-                                                SearchScreen(
-                                                    query = query.text,
-                                                    onQueryChange = onQueryChange,
-                                                    onSearch = { query, type ->
-                                                        Screen.SearchResult.navigate(navController){
-                                                            addPath(Uri.encode(query))
-                                                            addPath(type.toString())
-                                                        }
-                                                    },
-                                                    onDismiss = clearSearchInput,
-                                                    modifier = Modifier
-                                                        .fillMaxSize()
-                                                        .padding(top = windowsInsets.asPaddingValues().calculateTopPadding())
-                                                        .padding(searchResultsBottomPadding),
-                                                )
-                                            }
-                                        }
-                                    }
                                 }
                             }
                         if (selectionToolbar.content.value == null) AnimatedMiniPlayerLayer(
@@ -1162,7 +1118,7 @@ class MainActivity : ComponentActivity() {
                                     onSearch = onSearch,
                                     onCancel = onSearchCancel,
                                     cancelLabel = stringResource(R.string.cancel),
-                                    placeholder = stringResource(R.string.search_bar_search),
+                                    placeholder = "搜索标题、歌手或专辑",
                                     focusRequester = searchBarFocusRequester,
                                     autoFocus = focusSearchOnEntry,
                                     modifier = Modifier

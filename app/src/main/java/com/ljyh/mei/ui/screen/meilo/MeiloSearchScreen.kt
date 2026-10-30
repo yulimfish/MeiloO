@@ -2,39 +2,32 @@ package com.ljyh.mei.ui.screen.meilo
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.ljyh.mei.di.AppDatabase
 import com.ljyh.mei.ui.local.LocalPlayerAwareWindowInsets
 import com.ljyh.mei.ui.local.LocalPlayerConnection
 import com.ljyh.mei.ui.navigation.MeiloXPinnedListPage
-import io.github.neoruaa.glasmio.ui.GlasmioSearchBar
 
-/** Searches only [AppDatabase.songDao]'s local songs by title, artist, or album. */
+/**
+ * Searches only [AppDatabase.songDao]'s local songs by title, artist, or album.
+ * The shared bottom search toolbar owns the query input.
+ */
 @Composable
 fun MeiloSearchScreen(
+    query: String = "",
     onNavigateBack: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current.applicationContext
     val database = remember(context) { AppDatabase.getDatabase(context) }
     val player = LocalPlayerConnection.current
     val songs by database.songDao().getLocalSongs().collectAsState(initial = emptyList())
-    var query by remember { mutableStateOf(TextFieldValue()) }
-    var searchActive by remember { mutableStateOf(true) }
-    val focusManager = LocalFocusManager.current
-    val results = remember(songs, query.text) { filterMeiloSongs(songs, query.text) }
+    val results = remember(songs, query) { filterMeiloSongs(songs, query) }
 
     MeiloXPinnedListPage(
         title = "本地搜索",
@@ -42,24 +35,7 @@ fun MeiloSearchScreen(
         onNavigateBack = onNavigateBack,
         bottomPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding(),
     ) {
-        item(key = "meilo-local-search-bar") {
-            GlasmioSearchBar(
-                query = query,
-                onQueryChange = { query = it },
-                active = searchActive,
-                onActiveChange = { searchActive = it },
-                onClose = {
-                    query = TextFieldValue()
-                    searchActive = false
-                },
-                placeholder = "搜索标题、歌手或专辑",
-                closeContentDescription = "清空并关闭搜索",
-                onSearch = { focusManager.clearFocus() },
-                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-            )
-        }
-
-        if (query.text.isBlank()) {
+        if (query.isBlank()) {
             item(key = "meilo-search-prompt") {
                 MeiloEmptyState(
                     title = "搜索本地曲库",
@@ -86,7 +62,7 @@ fun MeiloSearchScreen(
                             songs = results,
                             startIndex = index,
                             queueId = "meilo-local-search",
-                            queueTitle = "本地搜索：${query.text.trim()}",
+                            queueTitle = "本地搜索：${query.trim()}",
                         )
                     },
                 )

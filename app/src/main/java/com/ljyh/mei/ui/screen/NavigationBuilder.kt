@@ -82,6 +82,7 @@ import com.ljyh.mei.ui.screen.meilo.MeiloSettingsScreen
 fun NavGraphBuilder.navigationBuilder(
     navController: NavHostController,
     scrollBehavior: TopAppBarScrollBehavior,
+    searchQuery: String = "",
 ) {
     composable(Screen.Home.route) {
         MeiloSongsScreen()
@@ -125,7 +126,7 @@ fun NavGraphBuilder.navigationBuilder(
     }
 
     composable(Screen.Search.route) {
-        MeiloSearchScreen(onNavigateBack = navController::navigateUp)
+        MeiloSearchScreen(query = searchQuery, onNavigateBack = navController::navigateUp)
     }
 
     composable(Screen.PrivateMessages.route) {
@@ -416,6 +417,7 @@ fun navigationEntry(
     route: String,
     scrollBehavior: TopAppBarScrollBehavior,
     isNavigationTab: Boolean = false,
+    searchQuery: String = "",
 ) {
     when {
         route == Screen.Home.route -> MeiloSongsScreen()
@@ -437,7 +439,7 @@ fun navigationEntry(
         }
         route == Screen.Podcasts.route -> PodcastScreen(isNavigationTab = isNavigationTab)
         route == Screen.CloudMusic.route -> CloudMusicScreen(isNavigationTab = isNavigationTab)
-        route == Screen.Search.route -> MeiloSearchScreen()
+        route == Screen.Search.route -> MeiloSearchScreen(query = searchQuery)
         route == Screen.PrivateMessages.route -> ConversationsScreen()
         route == Screen.OfficialMessages.route -> ConversationsScreen(officialMessages = true)
         route == Screen.MessageContacts.route -> MessageContactsScreen()

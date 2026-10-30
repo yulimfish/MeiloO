@@ -31,10 +31,12 @@ import androidx.compose.ui.unit.dp
 import com.ljyh.mei.data.locallibrary.LocalLibraryFolderRepository
 import com.ljyh.mei.di.AppDatabase
 import com.ljyh.mei.data.localsync.LocalMetadataSync
+import com.ljyh.mei.ui.local.LocalNavController
 import com.ljyh.mei.ui.local.LocalPlayerAwareWindowInsets
 import com.ljyh.mei.ui.local.LocalPlayerConnection
 import com.ljyh.mei.ui.navigation.MeiloXPinnedListPage
 import com.ljyh.mei.ui.navigation.meiloxHeaderAction
+import com.ljyh.mei.ui.screen.Screen
 import com.ljyh.mei.ui.screen.local.LocalLibraryScanner
 import com.ljyh.mei.ui.screen.local.LocalScanState
 import io.github.neoruaa.glasmio.icons.SfIcon
@@ -55,12 +57,6 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 fun MeiloSongsScreen(
     onNavigateBack: (() -> Unit)? = null,
 ) {
-    var showSearch by remember { mutableStateOf(false) }
-    if (showSearch) {
-        MeiloSearchScreen(onNavigateBack = { showSearch = false })
-        return
-    }
-
     val context = LocalContext.current
     val appContext = context.applicationContext
     val database = remember(appContext) { AppDatabase.getDatabase(appContext) }
@@ -70,6 +66,7 @@ fun MeiloSongsScreen(
     val metadataSync = remember(appContext, database) { LocalMetadataSync(appContext, database) }
     val syncState by metadataSync.state.collectAsState()
     val player = LocalPlayerConnection.current
+    val navController = LocalNavController.current
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
 
@@ -170,7 +167,7 @@ fun MeiloSongsScreen(
                 meiloxHeaderAction(
                     key = "meilo-local-search",
                     contentDescription = "搜索本地歌曲",
-                    onClick = { showSearch = true },
+                    onClick = { navController.navigate(Screen.Search.route) },
                 ) { SfIcon(SfSymbol.Search, null) },
                 meiloxHeaderAction(
                     key = "meilo-sync-metadata",
