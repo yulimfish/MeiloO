@@ -561,6 +561,9 @@ class LyricManager @Inject constructor(
         am: Resource<String>,
         generation: Long,
     ) {
+        // Local lyrics already have a final cache-backed result; legacy three-source merging
+        // would replace its source-specific empty state and can race a reset/rescan.
+        if (lastMetadata?.isLocal == true) return
         val songIdAtStart = currentSongId ?: return
         val metadata = lastMetadata ?: return
         val selectionGeneration = sourceSelectionGeneration
@@ -856,7 +859,7 @@ class LyricManager @Inject constructor(
                 qqSongRepository.deleteSongById(songId)
                 cacheMutex.withLock {
                     lyricCache.remove(songId)
-                    cachedLyricRepository.delete(songId)
+                    cachedLyricRepository.delete(if (metadata.isLocal) localSongStorageId(songId) else songId)
                 }
             }
             if (isCurrentLoad(songId, generation) && selectionGeneration == sourceSelectionGeneration) {
