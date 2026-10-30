@@ -27,6 +27,7 @@ import com.ljyh.mei.data.localsync.TrackSourceOverride
 import com.ljyh.mei.data.localsync.TrackSourceSelection
 import com.ljyh.mei.data.model.MediaMetadata
 import com.ljyh.mei.ui.component.player.PlayerViewModel
+import com.ljyh.mei.ui.component.player.defaultLocalMetadataSearchText
 import com.ljyh.mei.ui.component.sheet.rememberMeiloXSheetDismissal
 import com.ljyh.mei.ui.screen.meilo.MeiloChoiceCard
 import io.github.neoruaa.glasmio.ui.GlasmioBottomSheet
@@ -51,10 +52,7 @@ fun LocalMetadataSheet(
     val offsetMs by viewModel.lyricOffsetMs.collectAsState()
     val overrides by viewModel.trackSourceOverrides(songId).collectAsState(initial = TrackSourceOverride())
     var searchQuery by remember(mediaMetadata.id) {
-        mutableStateOf(TextFieldValue(
-            listOf(mediaMetadata.title, mediaMetadata.artists.joinToString(" ") { it.name })
-                .filter(String::isNotBlank).joinToString(" "),
-        ))
+        mutableStateOf(TextFieldValue(defaultLocalMetadataSearchText(mediaMetadata)))
     }
     var searchActive by remember { mutableStateOf(false) }
     val dismissal = rememberMeiloXSheetDismissal(onDismiss)

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.room.withTransaction
 import com.ljyh.mei.data.localmetadata.MetadataCandidate
 import com.ljyh.mei.data.localmetadata.MetadataEngine
 import com.ljyh.mei.data.localmetadata.MetadataQuery
@@ -96,7 +97,6 @@ class LocalMetadataSync @Inject constructor(
         onlyMissingMetadata: Boolean = onlyMissing,
     ): Song {
         val storedSong = database.songDao().getSong(song.id).firstOrNull() ?: song
-        val existingLyric = database.cachedLyricDao().get(storedSong.id).first()
         val candidates = if (candidate == null) {
             val settings = settingsStore.settings.first()
             val override = overrides(song.id).first()
@@ -113,36 +113,41 @@ class LocalMetadataSync @Inject constructor(
             engine.search(storedSong.toMetadataQuery(), preference = SourcePreference(global = sources)).candidates
         } else listOf(candidate)
 
-        val lyric = candidate?.takeIf { it.lyrics?.isEmpty == false }
-            ?: rankLyricCandidates(storedSong.toMetadataQuery(), candidates).firstOrNull()
-        val update = selectMetadataUpdate(
-            song = storedSong,
-            candidates = candidates,
-            onlyMissing = onlyMissingMetadata,
-            minTextScore = if (candidate == null) MIN_METADATA_SCORE else Double.NEGATIVE_INFINITY,
-            minArtworkScore = if (candidate == null) MIN_METADATA_SCORE else Double.NEGATIVE_INFINITY,
-        )
-        val updated = mergeSyncedSong(storedSong, update, onlyMissingMetadata)
-        if (updated != storedSong) database.songDao().updateSong(updated)
-        val lyrics = lyric?.lyrics
-        if (lyrics != null && (!onlyMissing || existingLyric == null)) {
-            val payload = lyricCachePayload(lyrics)
-            if (payload != null) {
-                database.cachedLyricDao().insert(
-                    CachedLyric(
-                        songId = storedSong.id,
-                        content = payload.content,
-                        translation = null,
-                        isVerbatim = false,
-                        isPureMusic = false,
-                        sourceName = lyric.source.name,
-                        parserType = payload.parserType,
-                        updatedAt = System.currentTimeMillis(),
-                    ),
-                )
+        return database.withTransaction {
+            // A slow lyric lookup must not overwrite a manual choice made while it was in flight.
+            val currentSong = database.songDao().getSong(storedSong.id).firstOrNull() ?: storedSong
+            val existingLyric = database.cachedLyricDao().get(storedSong.id).first()
+            val lyric = candidate?.takeIf { it.lyrics?.isEmpty == false }
+                ?: rankLyricCandidates(currentSong.toMetadataQuery(), candidates).firstOrNull()
+            val update = selectMetadataUpdate(
+                song = currentSong,
+                candidates = candidates,
+                onlyMissing = onlyMissingMetadata,
+                minTextScore = if (candidate == null) MIN_METADATA_SCORE else Double.NEGATIVE_INFINITY,
+                minArtworkScore = if (candidate == null) MIN_METADATA_SCORE else Double.NEGATIVE_INFINITY,
+            )
+            val updated = mergeSyncedSong(currentSong, update, onlyMissingMetadata)
+            if (updated != currentSong) database.songDao().updateSong(updated)
+            val lyrics = lyric?.lyrics
+            if (lyrics != null && (!onlyMissing || existingLyric == null)) {
+                val payload = lyricCachePayload(lyrics)
+                if (payload != null) {
+                    database.cachedLyricDao().insert(
+                        CachedLyric(
+                            songId = currentSong.id,
+                            content = payload.content,
+                            translation = null,
+                            isVerbatim = false,
+                            isPureMusic = false,
+                            sourceName = lyric.source.name,
+                            parserType = payload.parserType,
+                            updatedAt = System.currentTimeMillis(),
+                        ),
+                    )
+                }
             }
+            updated
         }
-        return updated
     }
 
     suspend fun syncLibrary(force: Boolean = false) {

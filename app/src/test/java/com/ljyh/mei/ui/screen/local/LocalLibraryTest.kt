@@ -59,6 +59,41 @@ class LocalLibraryTest {
     }
 
     @Test
+    fun rescanRetainsAutoFilledFieldsOnlyWhileEmbeddedValuesAreMissing() {
+        val existing = song().copy(
+            title = "Recovered title",
+            artist = listOf("Recovered artist"),
+            album = "Recovered album",
+            cover = "https://images.test/recovered.jpg",
+            metadataOverride = false,
+        )
+        val missingEmbeddedValues = song().copy(
+            title = "Filename fallback",
+            artist = emptyList(),
+            album = "",
+            cover = "",
+        )
+
+        val retained = mergeScannedSong(existing, missingEmbeddedValues)
+
+        assertEquals("Filename fallback", retained.title)
+        assertEquals(listOf("Recovered artist"), retained.artist)
+        assertEquals("Recovered album", retained.album)
+        assertEquals("https://images.test/recovered.jpg", retained.cover)
+
+        val newEmbeddedValues = missingEmbeddedValues.copy(
+            artist = listOf("Embedded artist"),
+            album = "Embedded album",
+            cover = "file:///embedded.jpg",
+        )
+        val refreshed = mergeScannedSong(retained, newEmbeddedValues)
+
+        assertEquals(listOf("Embedded artist"), refreshed.artist)
+        assertEquals("Embedded album", refreshed.album)
+        assertEquals("file:///embedded.jpg", refreshed.cover)
+    }
+
+    @Test
     fun confirmedMatchUpdatesDisplayMetadataWithoutReplacingTheLocalFile() {
         val original = song().copy(fileHash = "hash", bitrate = 320_000, folderPath = "/Music")
         val candidate = track(id = 900, title = "Matched", artist = "Singer", duration = 190_000)

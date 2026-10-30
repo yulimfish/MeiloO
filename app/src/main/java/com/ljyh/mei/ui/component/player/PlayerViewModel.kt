@@ -41,6 +41,7 @@ import com.ljyh.mei.data.localsync.TrackSourceOverride
 import com.ljyh.mei.data.localmetadata.MetadataCandidate
 import com.ljyh.mei.data.localmetadata.MetadataQuery
 import com.ljyh.mei.di.AppDatabase
+import com.ljyh.mei.data.model.room.Song
 import com.ljyh.mei.data.model.room.localSongStorageId
 import com.ljyh.mei.ui.model.LyricCandidate
 import com.ljyh.mei.ui.model.LyricData
@@ -225,14 +226,7 @@ class PlayerViewModel @Inject constructor(
                 if (song == null) {
                     _localMetadataMessage.value = "找不到本地歌曲记录"
                 } else {
-                    val customQuery = queryText?.trim()?.takeIf(String::isNotBlank)?.let { query ->
-                        MetadataQuery(
-                            title = query,
-                            artists = song.artist,
-                            album = song.album.takeIf(String::isNotBlank),
-                            durationMs = song.duration.takeIf { it > 0 },
-                        )
-                    }
+                    val customQuery = editedLocalMetadataQuery(song, metadata, queryText)
                     val result = localMetadataSync.search(song, customQuery = customQuery)
                     _localMetadataCandidates.value = result.candidates
                     _localMetadataMessage.value = when {
@@ -403,4 +397,25 @@ class PlayerViewModel @Inject constructor(
     }
 
 
+}
+
+internal fun defaultLocalMetadataSearchText(metadata: MediaMetadata): String =
+    listOf(metadata.title, metadata.artists.joinToString(" ") { it.name })
+        .filter(String::isNotBlank)
+        .joinToString(" ")
+
+/** The sheet's unchanged display text is not an edited title; preserve the structured query. */
+internal fun editedLocalMetadataQuery(
+    song: Song,
+    metadata: MediaMetadata,
+    queryText: String?,
+): MetadataQuery? {
+    val edited = queryText?.trim()?.takeIf(String::isNotBlank) ?: return null
+    if (edited == defaultLocalMetadataSearchText(metadata)) return null
+    return MetadataQuery(
+        title = edited,
+        artists = song.artist,
+        album = song.album.takeIf(String::isNotBlank),
+        durationMs = song.duration.takeIf { it > 0 },
+    )
 }

@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
@@ -125,6 +126,29 @@ class PlayerConnection(
             }
         }
         scope.launch { service.queueManager.fmModeActive.collect { isFMMode.value = it } }
+        scope.launch {
+            database.songDao().getLocalSongs().collectLatest { songs ->
+                val metadataByMediaId = songs.associate { song ->
+                    val metadata = song.toMediaMetadata()
+                    metadata.id.toString() to metadata
+                }
+                var refreshedCurrentItem = false
+                (0 until player.mediaItemCount).forEach { index ->
+                    val current = player.getMediaItemAt(index)
+                    val updated = metadataByMediaId[current.mediaId] ?: return@forEach
+                    if (current.metadata == updated) return@forEach
+                    val refreshed = current.buildUpon()
+                        .setTag(updated)
+                        .setMediaMetadata(updated.toMediaItem().mediaMetadata)
+                        .build()
+                    refreshedCurrentItem = refreshedCurrentItem || index == player.currentMediaItemIndex
+                    (player as? StableDeckPlayer)?.withInternalQueueUpdate {
+                        player.replaceMediaItem(index, refreshed)
+                    } ?: player.replaceMediaItem(index, refreshed)
+                }
+                if (refreshedCurrentItem) updateAllStates()
+            }
+        }
     }
 
     private fun updateAllStates() {

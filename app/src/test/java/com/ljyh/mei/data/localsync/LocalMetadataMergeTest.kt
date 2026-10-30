@@ -36,7 +36,7 @@ class LocalMetadataMergeTest {
         assertEquals(song.album, merged.album)
         assertEquals(song.cover, merged.cover)
         assertTrue(merged.metadataOverride)
-        assertEquals(123L, merged.updatedAt)
+        assertEquals(song, merged)
     }
 
     @Test
@@ -177,10 +177,7 @@ class LocalMetadataMergeTest {
 
         val merged = mergeSyncedSong(song, update, onlyMissing = true)
 
-        assertEquals(song.title, merged.title)
-        assertEquals(song.artist, merged.artist)
-        assertEquals(song.album, merged.album)
-        assertEquals(song.cover, merged.cover)
+        assertEquals(song, merged)
     }
 
     @Test

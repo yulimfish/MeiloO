@@ -61,27 +61,30 @@ internal fun mergeSyncedSong(
     update: LocalMetadataUpdate,
     onlyMissing: Boolean,
     now: Long = System.currentTimeMillis(),
-): Song = song.copy(
-    title = if (onlyMissing && song.title.isNotBlank()) {
-        song.title
-    } else {
-        update.title?.title?.takeIf(String::isNotBlank) ?: song.title
-    },
-    artist = if (onlyMissing && song.artist.any(String::isNotBlank)) {
-        song.artist
-    } else {
-        update.artists?.artists?.filter(String::isNotBlank)?.takeIf { it.isNotEmpty() } ?: song.artist
-    },
-    album = if (onlyMissing && song.album.isNotBlank()) {
-        song.album
-    } else {
-        update.album?.album?.takeIf(String::isNotBlank) ?: song.album
-    },
-    cover = if (onlyMissing && song.cover.isNotBlank()) {
-        song.cover
-    } else {
-        update.artwork?.artworkUrl?.takeIf(String::isNotBlank) ?: song.cover
-    },
-    metadataOverride = song.metadataOverride || !onlyMissing,
-    updatedAt = now,
-)
+): Song {
+    val merged = song.copy(
+        title = if (onlyMissing && song.title.isNotBlank()) {
+            song.title
+        } else {
+            update.title?.title?.takeIf(String::isNotBlank) ?: song.title
+        },
+        artist = if (onlyMissing && song.artist.any(String::isNotBlank)) {
+            song.artist
+        } else {
+            update.artists?.artists?.filter(String::isNotBlank)?.takeIf { it.isNotEmpty() } ?: song.artist
+        },
+        album = if (onlyMissing && song.album.isNotBlank()) {
+            song.album
+        } else {
+            update.album?.album?.takeIf(String::isNotBlank) ?: song.album
+        },
+        cover = if (onlyMissing && song.cover.isNotBlank()) {
+            song.cover
+        } else {
+            update.artwork?.artworkUrl?.takeIf(String::isNotBlank) ?: song.cover
+        },
+        metadataOverride = song.metadataOverride || !onlyMissing,
+    )
+    // In particular, a lyric-only result must not write a stale Song snapshot back to Room.
+    return if (merged == song) song else merged.copy(updatedAt = now)
+}

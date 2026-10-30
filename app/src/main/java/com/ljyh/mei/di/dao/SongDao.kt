@@ -27,7 +27,7 @@ interface SongDao {
     @Query("SELECT * FROM song WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): Song?
 
-    @Query("UPDATE song SET title = :title, artist = :artist, album = :album, cover = :cover, updatedAt = :time WHERE id = :id AND path IS NOT NULL AND path != ''")
+    @Query("UPDATE song SET title = :title, artist = :artist, album = :album, cover = :cover, metadataOverride = 1, updatedAt = :time WHERE id = :id AND path IS NOT NULL AND path != ''")
     suspend fun updateLocalDisplayMetadata(
         id: String,
         title: String,

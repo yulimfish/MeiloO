@@ -12,7 +12,7 @@ internal fun localAudioPathExists(path: String?): Boolean = when {
     else -> File(path.removePrefix("file://")).exists()
 }
 
-/** A rescan refreshes file facts without discarding a user's selected catalog metadata. */
+/** Embedded values win; automatic fills survive only while the corresponding file tag is absent. */
 internal fun mergeScannedSong(existing: Song?, scanned: Song): Song = existing?.copy(
     path = scanned.path,
     duration = scanned.duration.takeIf { it > 0 } ?: existing.duration,
@@ -21,10 +21,26 @@ internal fun mergeScannedSong(existing: Song?, scanned: Song): Song = existing?.
     bitrate = scanned.bitrate ?: existing.bitrate,
     sampleRate = scanned.sampleRate ?: existing.sampleRate,
     folderPath = scanned.folderPath ?: existing.folderPath,
-    title = if (existing.metadataOverride) existing.title else scanned.title,
-    artist = if (existing.metadataOverride) existing.artist else scanned.artist,
-    album = if (existing.metadataOverride) existing.album else scanned.album,
-    cover = if (existing.metadataOverride) existing.cover else scanned.cover,
+    title = when {
+        existing.metadataOverride -> existing.title
+        scanned.title.isNotBlank() -> scanned.title
+        else -> existing.title
+    },
+    artist = when {
+        existing.metadataOverride -> existing.artist
+        scanned.artist.any(String::isNotBlank) -> scanned.artist
+        else -> existing.artist
+    },
+    album = when {
+        existing.metadataOverride -> existing.album
+        scanned.album.isNotBlank() -> scanned.album
+        else -> existing.album
+    },
+    cover = when {
+        existing.metadataOverride -> existing.cover
+        scanned.cover.isNotBlank() -> scanned.cover
+        else -> existing.cover
+    },
     updatedAt = scanned.updatedAt,
 ) ?: scanned
 
