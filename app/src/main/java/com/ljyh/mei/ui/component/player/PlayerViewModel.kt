@@ -39,6 +39,7 @@ import com.ljyh.mei.playback.MediaUriProvider
 import com.ljyh.mei.data.localsync.LocalMetadataSync
 import com.ljyh.mei.data.localsync.TrackSourceOverride
 import com.ljyh.mei.data.localmetadata.MetadataCandidate
+import com.ljyh.mei.data.localmetadata.MetadataQuery
 import com.ljyh.mei.di.AppDatabase
 import com.ljyh.mei.data.model.room.localSongStorageId
 import com.ljyh.mei.ui.model.LyricCandidate
@@ -214,7 +215,7 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch { localMetadataSync.setOverrides(storedLocalSongId(songId), override) }
     }
 
-    fun searchLocalMetadata(metadata: MediaMetadata) {
+    fun searchLocalMetadata(metadata: MediaMetadata, queryText: String? = null) {
         if (!metadata.isLocal) return
         viewModelScope.launch {
             _localMetadataBusy.value = true
@@ -224,7 +225,15 @@ class PlayerViewModel @Inject constructor(
                 if (song == null) {
                     _localMetadataMessage.value = "找不到本地歌曲记录"
                 } else {
-                    val result = localMetadataSync.search(song)
+                    val customQuery = queryText?.trim()?.takeIf(String::isNotBlank)?.let { query ->
+                        MetadataQuery(
+                            title = query,
+                            artists = song.artist,
+                            album = song.album.takeIf(String::isNotBlank),
+                            durationMs = song.duration.takeIf { it > 0 },
+                        )
+                    }
+                    val result = localMetadataSync.search(song, customQuery = customQuery)
                     _localMetadataCandidates.value = result.candidates
                     _localMetadataMessage.value = when {
                         result.candidates.isNotEmpty() -> null

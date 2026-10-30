@@ -31,6 +31,9 @@ data class MetadataLyrics(
         get() = plain.isNullOrBlank() && synced.isNullOrBlank()
 }
 
+/** Which lookup stage produced a candidate. */
+enum class MetadataMatchTier { EXACT, FUZZY }
+
 /**
  * Source-neutral metadata. [artworkUrl] is an image location only; this model deliberately
  * has no audio or playback URL field.
@@ -45,6 +48,7 @@ data class MetadataCandidate(
     val source: MetadataSource,
     val sourceId: String,
     val score: Double = 0.0,
+    val matchTier: MetadataMatchTier = MetadataMatchTier.FUZZY,
 ) {
     init {
         require(title.isNotBlank()) { "title must not be blank" }

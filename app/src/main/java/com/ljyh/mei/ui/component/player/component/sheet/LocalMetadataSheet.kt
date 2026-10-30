@@ -13,11 +13,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ljyh.mei.data.localmetadata.MetadataCandidate
+import com.ljyh.mei.data.localmetadata.MetadataMatchTier
 import com.ljyh.mei.data.localsync.TrackSourceOverride
 import com.ljyh.mei.data.localsync.TrackSourceSelection
 import com.ljyh.mei.data.model.MediaMetadata
@@ -29,6 +34,7 @@ import io.github.neoruaa.glasmio.ui.GlasmioButton
 import io.github.neoruaa.glasmio.ui.GlasmioCard
 import io.github.neoruaa.glasmio.ui.GlasmioGroupedList
 import io.github.neoruaa.glasmio.ui.GlasmioListRow
+import io.github.neoruaa.glasmio.ui.GlasmioSearchBar
 import io.github.neoruaa.glasmio.ui.LocalGlasmioSheetContentPadding
 
 /** Per-track source overrides and manual candidate selection, hosted by the original player sheet. */
@@ -42,7 +48,15 @@ fun LocalMetadataSheet(
     val candidates by viewModel.localMetadataCandidates.collectAsState()
     val busy by viewModel.localMetadataBusy.collectAsState()
     val message by viewModel.localMetadataMessage.collectAsState()
+    val offsetMs by viewModel.lyricOffsetMs.collectAsState()
     val overrides by viewModel.trackSourceOverrides(songId).collectAsState(initial = TrackSourceOverride())
+    var searchQuery by remember(mediaMetadata.id) {
+        mutableStateOf(TextFieldValue(
+            listOf(mediaMetadata.title, mediaMetadata.artists.joinToString(" ") { it.name })
+                .filter(String::isNotBlank).joinToString(" "),
+        ))
+    }
+    var searchActive by remember { mutableStateOf(false) }
     val dismissal = rememberMeiloXSheetDismissal(onDismiss)
 
     GlasmioBottomSheet(
@@ -102,8 +116,42 @@ fun LocalMetadataSheet(
                 )
             }
             item {
+                GlasmioSearchBar(
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                    active = searchActive,
+                    onActiveChange = { searchActive = it },
+                    onClose = { searchActive = false },
+                    onSearch = { viewModel.searchLocalMetadata(mediaMetadata, searchQuery.text) },
+                    placeholder = "输入歌曲名和歌手，先精确后模糊",
+                    closeContentDescription = "收起搜索",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                GlasmioGroupedList {
+                    GlasmioListRow(
+                        title = "提前 0.5 秒",
+                        systemName = "minus",
+                        showTopSeparator = false,
+                        onClick = { viewModel.adjustLyricOffset(mediaMetadata, -500) },
+                    )
+                    GlasmioListRow(
+                        title = "歌词偏移 ${if (offsetMs >= 0) "+" else ""}${offsetMs} ms",
+                        subtitle = "正值提前显示，负值延后显示",
+                        systemName = "timer",
+                        onClick = { viewModel.resetLyricOffset(mediaMetadata) },
+                    )
+                    GlasmioListRow(
+                        title = "延后 0.5 秒",
+                        systemName = "plus",
+                        onClick = { viewModel.adjustLyricOffset(mediaMetadata, 500) },
+                    )
+                }
+            }
+            item {
                 GlasmioButton(
-                    onClick = { viewModel.searchLocalMetadata(mediaMetadata) },
+                    onClick = { viewModel.searchLocalMetadata(mediaMetadata, searchQuery.text) },
                     enabled = !busy,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(if (busy) "正在分析匹配…" else "按当前来源重新匹配") }
@@ -149,8 +197,11 @@ private fun CandidateCard(candidate: MetadataCandidate, enabled: Boolean, onClic
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                "${candidate.source} · 匹配 ${(candidate.score * 100).toInt()}%" +
-                    if (candidate.lyrics?.isEmpty == false) " · 含歌词" else "",
+                "${if (candidate.matchTier == MetadataMatchTier.EXACT) "精确" else "模糊"} · " +
+                    "${candidate.source} · 匹配 ${(candidate.score * 100).toInt()}%" +
+                    (candidate.durationMs?.let { " · ${it / 1000}s" } ?: "") +
+                    if (candidate.lyrics?.synced?.isNotBlank() == true) " · 同步歌词"
+                    else if (candidate.lyrics?.isEmpty == false) " · 纯文本" else "",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
             )

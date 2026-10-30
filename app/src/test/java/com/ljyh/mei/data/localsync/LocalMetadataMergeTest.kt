@@ -27,7 +27,9 @@ class LocalMetadataMergeTest {
         val update = selectMetadataUpdate(song, candidates, onlyMissing = true, minTextScore = 0.55, minArtworkScore = 0.55)
         val merged = mergeSyncedSong(song, update, onlyMissing = true, now = 123L)
 
-        assertNull(update.text)
+        assertNull(update.title)
+        assertNull(update.artists)
+        assertNull(update.album)
         assertNull(update.artwork)
         assertEquals(song.title, merged.title)
         assertEquals(song.artist, merged.artist)
@@ -107,10 +109,78 @@ class LocalMetadataMergeTest {
         val update = selectMetadataUpdate(song, candidates, onlyMissing = true, minTextScore = 0.55, minArtworkScore = 0.55)
         val merged = mergeSyncedSong(song, update, onlyMissing = true)
 
-        assertEquals(bestText, update.text)
+        assertEquals(bestText, update.title)
         assertEquals(lowerScoreWithCover, update.artwork)
         assertEquals("Best text without artwork", merged.title)
         assertEquals("https://images.test/cover.jpg", merged.cover)
+    }
+
+    @Test
+    fun missingFieldsFallBackIndependentlyWithoutReplacingLocalValues() {
+        val song = song().copy(artist = emptyList(), album = "")
+        val bestTrack = candidate(
+            title = "Remote title",
+            artists = listOf("Recovered artist"),
+            album = null,
+            artwork = null,
+            score = 0.95,
+            source = MetadataSource.MUSICBRAINZ,
+        )
+        val albumFallback = candidate(
+            title = "Same track on another release",
+            artists = listOf("Lower ranked artist"),
+            album = "Recovered album",
+            artwork = "https://images.test/remote.jpg",
+            score = 0.75,
+            source = MetadataSource.ITUNES,
+        )
+
+        val update = selectMetadataUpdate(
+            song,
+            listOf(bestTrack, albumFallback),
+            onlyMissing = true,
+            minTextScore = 0.55,
+            minArtworkScore = 0.55,
+        )
+        val merged = mergeSyncedSong(song, update, onlyMissing = true)
+
+        assertEquals(bestTrack, update.artists)
+        assertEquals(albumFallback, update.album)
+        assertEquals(song.title, merged.title)
+        assertEquals(listOf("Recovered artist"), merged.artist)
+        assertEquals("Recovered album", merged.album)
+        assertEquals(song.cover, merged.cover)
+    }
+
+    @Test
+    fun missingArtistOrAlbumTriggersLookupEvenWhenCoverExists() {
+        val complete = song()
+
+        assertFalse(shouldLookupSongMetadata(complete, onlyMissing = true))
+        assertTrue(shouldLookupSongMetadata(complete.copy(artist = emptyList()), onlyMissing = true))
+        assertTrue(shouldLookupSongMetadata(complete.copy(artist = listOf(" ")), onlyMissing = true))
+        assertTrue(shouldLookupSongMetadata(complete.copy(album = ""), onlyMissing = true))
+        assertTrue(shouldLookupSongMetadata(complete.copy(cover = ""), onlyMissing = true))
+        assertTrue(shouldLookupSongMetadata(complete, onlyMissing = false))
+    }
+
+    @Test
+    fun failedLookupLeavesAllDisplayedFieldsUntouched() {
+        val song = song().copy(artist = emptyList(), album = "", cover = "")
+        val update = selectMetadataUpdate(
+            song,
+            candidates = emptyList(),
+            onlyMissing = true,
+            minTextScore = 0.55,
+            minArtworkScore = 0.55,
+        )
+
+        val merged = mergeSyncedSong(song, update, onlyMissing = true)
+
+        assertEquals(song.title, merged.title)
+        assertEquals(song.artist, merged.artist)
+        assertEquals(song.album, merged.album)
+        assertEquals(song.cover, merged.cover)
     }
 
     @Test
@@ -140,7 +210,7 @@ class LocalMetadataMergeTest {
     private fun candidate(
         title: String,
         artists: List<String> = listOf("Artist"),
-        album: String = "Album",
+        album: String? = "Album",
         artwork: String?,
         score: Double,
         source: MetadataSource,

@@ -37,7 +37,10 @@ class LrcLibMetadataProvider(
             parameter("duration", query.durationMs / 1_000.0)
         }
         if (response.status == HttpStatusCode.NotFound) return null
-        return metadataJson.decodeFromString<LrcLibTrack>(response.requireSuccessBody()).toCandidate()
+        val candidate = metadataJson.decodeFromString<LrcLibTrack>(response.requireSuccessBody())
+            .toCandidate() ?: return null
+        return candidate.takeIf { isExactLyricMatch(query, it) }
+            ?.copy(score = 1.0, matchTier = MetadataMatchTier.EXACT)
     }
 
     suspend fun searchLyrics(query: MetadataQuery): List<MetadataCandidate> {
@@ -48,7 +51,9 @@ class LrcLibMetadataProvider(
             }
             query.album?.let { parameter("album_name", it) }
         }.requireSuccessBody()
-        return metadataJson.decodeFromString<List<LrcLibTrack>>(body).mapNotNull { it.toCandidate() }
+        val candidates = metadataJson.decodeFromString<List<LrcLibTrack>>(body)
+            .mapNotNull { it.toCandidate() }
+        return rankLyricCandidates(query, candidates)
     }
 }
 

@@ -10,6 +10,7 @@ import com.ljyh.mei.data.localmetadata.MetadataQuery
 import com.ljyh.mei.data.localmetadata.MetadataSearchResult
 import com.ljyh.mei.data.localmetadata.MetadataSource
 import com.ljyh.mei.data.localmetadata.SourcePreference
+import com.ljyh.mei.data.localmetadata.rankLyricCandidates
 import com.ljyh.mei.data.model.room.CachedLyric
 import com.ljyh.mei.data.model.room.Song
 import com.ljyh.mei.di.AppDatabase
@@ -70,7 +71,11 @@ class LocalMetadataSync @Inject constructor(
         }
     }
 
-    suspend fun search(song: Song, override: TrackSourceOverride? = null): MetadataSearchResult {
+    suspend fun search(
+        song: Song,
+        override: TrackSourceOverride? = null,
+        customQuery: MetadataQuery? = null,
+    ): MetadataSearchResult {
         val storedSong = database.songDao().getSong(song.id).firstOrNull() ?: song
         val settings = settingsStore.settings.first()
         val sources = sourcesFor(storedSong, settingsStore.settings.first().autoAnalysisSyncEnabled,
@@ -78,38 +83,46 @@ class LocalMetadataSync @Inject constructor(
             override ?: overrides(song.id).first(), onlyMissing = false)
         if (sources.isEmpty()) return MetadataSearchResult(emptyList())
         return engine.search(
-            query = storedSong.toMetadataQuery(),
+            query = customQuery ?: storedSong.toMetadataQuery(),
             preference = SourcePreference(global = sources),
         )
     }
 
-    /** Automatic sync fills missing fields; manual selection may deliberately replace them. */
+    /** Automatic sync fills missing fields; only explicit candidate selection may replace them. */
     suspend fun syncSong(
         song: Song,
         candidate: MetadataCandidate? = null,
         onlyMissing: Boolean = false,
+        onlyMissingMetadata: Boolean = onlyMissing,
     ): Song {
         val storedSong = database.songDao().getSong(song.id).firstOrNull() ?: song
         val existingLyric = database.cachedLyricDao().get(storedSong.id).first()
         val candidates = if (candidate == null) {
             val settings = settingsStore.settings.first()
             val override = overrides(song.id).first()
-            val sources = sourcesFor(storedSong, settings.autoAnalysisSyncEnabled,
-                settings.coverSource.name, settings.lyricsSource.name, override, onlyMissing)
+            val sources = sourcesFor(
+                song = storedSong,
+                autoEnabled = settings.autoAnalysisSyncEnabled,
+                coverSetting = settings.coverSource.name,
+                lyricsSetting = settings.lyricsSource.name,
+                override = override,
+                onlyMissing = onlyMissing,
+                onlyMissingMetadata = onlyMissingMetadata,
+            )
             if (sources.isEmpty()) return storedSong
             engine.search(storedSong.toMetadataQuery(), preference = SourcePreference(global = sources)).candidates
         } else listOf(candidate)
 
         val lyric = candidate?.takeIf { it.lyrics?.isEmpty == false }
-            ?: candidates.firstOrNull { it.lyrics?.isEmpty == false && it.score >= MIN_LYRIC_SCORE }
+            ?: rankLyricCandidates(storedSong.toMetadataQuery(), candidates).firstOrNull()
         val update = selectMetadataUpdate(
             song = storedSong,
             candidates = candidates,
-            onlyMissing = onlyMissing,
+            onlyMissing = onlyMissingMetadata,
             minTextScore = if (candidate == null) MIN_METADATA_SCORE else Double.NEGATIVE_INFINITY,
             minArtworkScore = if (candidate == null) MIN_METADATA_SCORE else Double.NEGATIVE_INFINITY,
         )
-        val updated = mergeSyncedSong(storedSong, update, onlyMissing)
+        val updated = mergeSyncedSong(storedSong, update, onlyMissingMetadata)
         if (updated != storedSong) database.songDao().updateSong(updated)
         val lyrics = lyric?.lyrics
         if (lyrics != null && (!onlyMissing || existingLyric == null)) {
@@ -140,7 +153,11 @@ class LocalMetadataSync @Inject constructor(
         _state.value = LocalSyncState(isRunning = true, total = songs.size)
         try {
             songs.forEachIndexed { index, song ->
-                val updated = syncSong(song, onlyMissing = !force)
+                val updated = syncSong(
+                    song = song,
+                    onlyMissing = !force,
+                    onlyMissingMetadata = true,
+                )
                 _state.value = _state.value.copy(
                     current = index + 1,
                     updated = _state.value.updated + if (updated != song) 1 else 0,
@@ -162,12 +179,15 @@ class LocalMetadataSync @Inject constructor(
         lyricsSetting: String,
         override: TrackSourceOverride,
         onlyMissing: Boolean,
+        onlyMissingMetadata: Boolean = onlyMissing,
         hasLocalLyrics: Boolean = false,
     ): List<MetadataSource> = buildList {
         val cover = if (override.cover == TrackSourceSelection.INHERIT) coverSetting else override.cover.name
         val lyrics = if (override.lyrics == TrackSourceSelection.INHERIT) lyricsSetting else override.lyrics.name
         val hasLyrics = hasLocalLyrics || database.cachedLyricDao().get(song.id).first() != null
-        if ((!onlyMissing || song.cover.isBlank()) && cover != TrackSourceSelection.LOCAL.name) {
+        if (shouldLookupSongMetadata(song, onlyMissingMetadata) &&
+            cover != TrackSourceSelection.LOCAL.name
+        ) {
             when (cover) {
                 TrackSourceSelection.ITUNES.name, MeiloCoverSource.ITUNES.name -> add(MetadataSource.ITUNES)
                 TrackSourceSelection.MUSICBRAINZ.name, MeiloCoverSource.MUSICBRAINZ.name -> add(MetadataSource.MUSICBRAINZ)
@@ -187,7 +207,6 @@ class LocalMetadataSync @Inject constructor(
 
     private companion object {
         const val MIN_METADATA_SCORE = 0.55
-        const val MIN_LYRIC_SCORE = 0.45
     }
 }
 
