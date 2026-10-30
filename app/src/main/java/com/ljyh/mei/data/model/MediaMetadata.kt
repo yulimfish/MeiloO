@@ -85,22 +85,26 @@ fun PlaylistDetail.Playlist.Track.toMediaMetadata() = MediaMetadata(
 
 
 
-fun AlbumDetail.Song.toMediaMetadata() = MediaMetadata(
-    id = id,
-    title = name,
-    coverUrl= getResourceLink(al.pic.toString()),
-    artists = ar.map {
-        MediaMetadata.Artist(
-            id = it.id,
-            name = it.name,
-        )
-    },
-    duration = dt,
-    album = MediaMetadata.Album(
-        id = al.id,
-        title = al.name
+fun AlbumDetail.Song.toMediaMetadata(): MediaMetadata {
+    val songName: String? = name
+    val songArtists: List<AlbumDetail.Song.Ar?>? = ar
+    val songAlbum: AlbumDetail.Song.Al? = al
+    val songAlbumName: String? = songAlbum?.name
+    return MediaMetadata(
+        id = id,
+        title = songName.orEmpty(),
+        coverUrl = songAlbum?.let { getResourceLink(it.pic.toString()) }.orEmpty(),
+        artists = songArtists.orEmpty().mapNotNull { artist ->
+            val artistName: String? = artist?.name
+            artist?.let { MediaMetadata.Artist(id = it.id, name = artistName.orEmpty()) }
+        },
+        duration = dt,
+        album = MediaMetadata.Album(
+            id = songAlbum?.id ?: 0,
+            title = songAlbumName.orEmpty(),
+        ),
     )
-)
+}
 
 
 

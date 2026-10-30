@@ -53,6 +53,7 @@ import com.ljyh.mei.ui.local.LocalNavController
 import com.ljyh.mei.ui.local.LocalPlayerAwareWindowInsets
 import com.ljyh.mei.ui.local.LocalPlayerConnection
 import com.ljyh.mei.ui.model.UiPlaylist
+import com.ljyh.mei.ui.model.toUiPlaylist
 import com.ljyh.mei.ui.screen.Screen
 import com.ljyh.mei.ui.screen.playlist.CommonSongListScreen
 import com.ljyh.mei.ui.screen.playlist.matchesPlaylistSearch
@@ -101,27 +102,7 @@ fun AlbumDetailScreen(
     // 4. 构建 UI 数据模型
     val uiData = remember(albumDetail, isSubscribed) {
         if (albumDetail is Resource.Success) {
-            val album = (albumDetail as Resource.Success).data.album
-            val songs = (albumDetail as Resource.Success).data.songs
-            UiPlaylist(
-                id = album.id,
-                title = album.name,
-                count = album.size,
-                subscriberCount = -1, // 专辑通常没有订阅人数，或者在 dynamicInfo 中
-                cover = album.picUrl,
-                coverList = listOf(album.picUrl),
-                creatorName = album.artists.joinToString(", ") { it.name },
-                isCreator = false,
-                description = album.description,
-                tracks = songs.map {
-                    it.toMediaMetadata().copy(
-                        coverUrl = album.picUrl,
-                        album = MediaMetadata.Album(album.id, album.name),
-                    )
-                },
-                playCount = -1,
-                isSubscribed = isSubscribed
-            )
+            (albumDetail as Resource.Success).data.toUiPlaylist(isSubscribed)
         } else {
             UiPlaylist(
                 id = 0L, title = "", cover = "", coverList = emptyList(), creatorName = "", tracks = emptyList(),
