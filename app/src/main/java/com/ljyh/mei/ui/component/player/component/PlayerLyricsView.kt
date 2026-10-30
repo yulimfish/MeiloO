@@ -128,6 +128,7 @@ internal fun PlayerLyricsView(
     showTranslation: Boolean = true,
     showPhonetic: Boolean = true,
     isVerbatim: Boolean = true,
+    isStatic: Boolean = false,
     offset: Dp = 32.dp,
     keepAliveZone: Dp = 100.dp,
     blurDelta: Float = 3f,
@@ -220,7 +221,7 @@ internal fun PlayerLyricsView(
 
     val haveDotsIntro by remember(firstLine) {
         derivedStateOf {
-            if (firstLine == null) false
+            if (firstLine == null || isStatic) false
             else (firstLine.start > 5000)
         }
     }
@@ -304,7 +305,7 @@ internal fun PlayerLyricsView(
                         items = lyrics.lines,
                         key = { index, line -> "${line.start}-${line.end}-$index" }
                     ) { index, line ->
-                        val isCurrentFocusLine = index in lyricsFocusState.allIndices
+                        val isCurrentFocusLine = !isStatic && index in lyricsFocusState.allIndices
                         val isLineRtl =
                             when (line) {
                                 is KaraokeLine -> {
@@ -387,7 +388,7 @@ internal fun PlayerLyricsView(
                                         LyricsLineItem(
                                             isFocused = isCurrentFocusLine,
                                             isRightAligned = isVisualRightAligned,
-                                            onLineClicked = { onLineClicked(line) },
+                                            onLineClicked = { if (!isStatic) onLineClicked(line) },
                                             onLinePressed = { onLinePressed(line) },
                                             blurRadius = { blurRadiusState.value },
                                             blendMode = stableBlendMode,
@@ -454,7 +455,7 @@ internal fun PlayerLyricsView(
                                     LyricsLineItem(
                                         isFocused = isCurrentFocusLine,
                                         isRightAligned = isLineRtl,
-                                        onLineClicked = { onLineClicked(line) },
+                                        onLineClicked = { if (!isStatic) onLineClicked(line) },
                                         onLinePressed = { onLinePressed(line) },
                                         blurRadius = { blurRadiusState.value },
                                         blendMode = stableBlendMode,

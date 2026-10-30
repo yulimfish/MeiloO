@@ -338,6 +338,7 @@ fun ClassicTabletLayout(
                         rendererVerticalPadding = if (playerStyle == PlayerStyle.AppleMusic) 0.dp else 8.dp,
                         lyricOffset = if (appleMusicStyle) tabletMargin + paneWidth / 2 else 48.dp,
                         playerConnection = stateContainer.playerConnection,
+                        lyricOffsetMs = { stateContainer.playerViewModel.lyricOffsetMs.value },
                         contentPadding = PaddingValues(
                             start = if (appleMusicStyle) 0.dp else PlayerHorizontalPadding,
                             end = if (appleMusicStyle) tabletMargin - AppleMusicDimensions.lyricRendererInset else PlayerHorizontalPadding + 32.dp,

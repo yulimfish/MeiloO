@@ -71,8 +71,10 @@ internal fun karaokeRenderTimeWindow(line: KaraokeLine): KaraokeRenderTimeWindow
 
 /** Derive display timings from the original snapshot without changing its metadata. */
 internal fun LyricData.withTimingOffset(offsetMs: Int): LyricData {
-    if (offsetMs == 0) return this
-    return copy(lyricLine = lyricLine.copy(lines = lyricLine.lines.map { it.shiftTiming(offsetMs) }))
+    if (offsetMs == 0 || isStatic) return this
+    // SPlayer-compatible convention: lyricTime = playbackTime + userOffset.
+    // Positive values make lyrics appear earlier; negative values delay them.
+    return copy(lyricLine = lyricLine.copy(lines = lyricLine.lines.map { it.shiftTiming(-offsetMs) }))
 }
 
 private fun ISyncedLine.shiftTiming(offsetMs: Int): ISyncedLine {

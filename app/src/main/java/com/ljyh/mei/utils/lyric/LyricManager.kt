@@ -320,7 +320,13 @@ class LyricManager @Inject constructor(
             (settings.lyrics != TrackSourceSelection.INHERIT && settings.lyrics != TrackSourceSelection.LOCAL))
         if (shouldFetch) {
             val song = com.ljyh.mei.di.AppDatabase.getDatabase(context).songDao().getSong(storedSongId).firstOrNull()
-            if (song != null) localMetadataSync.syncSong(song, onlyMissing = !forceReload)
+            if (song != null) {
+                localMetadataSync.syncSong(
+                    song = song,
+                    onlyMissing = !forceReload,
+                    onlyMissingMetadata = true,
+                )
+            }
         }
         if (!isCurrentLoad(songId, generation)) return
         val cached = cachedLyricRepository.get(storedSongId).firstOrNull()
@@ -1040,6 +1046,7 @@ internal fun CachedLyric.toLyricData(): LyricData? {
         } catch (_: IllegalArgumentException) {
             LyricSource.Empty
         },
-        lyricLine = lyrics
+        lyricLine = lyrics,
+        isStatic = parserType == PLAIN_LYRIC_PARSER_TYPE,
     )
 }

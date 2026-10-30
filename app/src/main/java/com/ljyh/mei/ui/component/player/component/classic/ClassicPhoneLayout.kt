@@ -179,6 +179,7 @@ fun ClassicPhoneLayout(
                         lyricData = lyricLine,
                         showSourceBadge = false,
                         playerConnection = stateContainer.playerConnection,
+                        lyricOffsetMs = { stateContainer.playerViewModel.lyricOffsetMs.value },
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = PlayerHorizontalPadding),

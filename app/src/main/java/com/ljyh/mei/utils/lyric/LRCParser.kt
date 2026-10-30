@@ -2,6 +2,7 @@ package com.ljyh.mei.utils.lyric
 
 import com.mocharealm.accompanist.lyrics.core.model.SyncedLyrics
 import com.mocharealm.accompanist.lyrics.core.model.synced.UncheckedSyncedLine
+import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import com.mocharealm.accompanist.lyrics.core.parser.ILyricsParser
 import com.mocharealm.accompanist.lyrics.core.utils.LrcMetadataHelper
 import kotlin.math.abs
@@ -12,6 +13,7 @@ object LRCParser : ILyricsParser {
     // A separate regex for parsing translation files
     private val translationLrcRegex = Regex("\\[(\\d{2}):(\\d{2})[.:](\\d{2,3})](.*)")
     private val timeStampRegex = Regex("\\[(\\d{1,2}:\\d{1,2}[.:]\\d{2,3})]")
+    private val metadataOffsetRegex = Regex("(?i)\\[offset:\\s*([+-]?\\d+)\\s*]")
 
 
     /**
@@ -37,7 +39,7 @@ object LRCParser : ILyricsParser {
             .map { it.toSyncedLine() }
             .filter { it.content.isNotBlank() }
 
-        return SyncedLyrics(lines = finalLines)
+        return SyncedLyrics(lines = finalLines.shiftMetadataOffset(parseLrcMetadataOffset(mainLrc)))
     }
 
     override fun canParse(content: String): Boolean {
@@ -57,7 +59,7 @@ object LRCParser : ILyricsParser {
             .map { it.toSyncedLine() }
             .filter { it.content.isNotBlank() }
             .sortedBy { it.start }
-        return SyncedLyrics(lines = data)
+        return SyncedLyrics(lines = data.shiftMetadataOffset(parseLrcMetadataOffset(lines.joinToString("\n"))))
     }
 
 
@@ -152,4 +154,19 @@ object LRCParser : ILyricsParser {
             val end = this.getOrNull(index + 1)?.start ?: (line.start + 5000) // Or a default duration
             line.copy(end = end)
         }
+
+    private fun List<SyncedLine>.shiftMetadataOffset(offsetMs: Int): List<SyncedLine> {
+        if (offsetMs == 0) return this
+        return map { line ->
+            line.copy(
+                start = (line.start.toLong() + offsetMs).toInt(),
+                end = (line.end.toLong() + offsetMs).toInt(),
+            )
+        }
+    }
 }
+
+private val lrcMetadataOffsetRegex = Regex("(?i)\\[offset:\\s*([+-]?\\d+)\\s*]")
+
+internal fun parseLrcMetadataOffset(content: String): Int =
+    lrcMetadataOffsetRegex.find(content)?.groupValues?.get(1)?.toIntOrNull() ?: 0

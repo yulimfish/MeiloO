@@ -128,6 +128,7 @@ fun LyricScreen(
     showSourceBadge: Boolean = true,
     controlsAutoHideBlocked: Boolean = false,
     lyricOffset: Dp = 48.dp,
+    lyricOffsetMs: () -> Int = { 0 },
 ) {
     val context = LocalContext.current
     val layoutDirection = LocalLayoutDirection.current
@@ -367,6 +368,7 @@ fun LyricScreen(
                                 showTranslation = translationEnabled,
                                 showPhonetic = romanizationEnabled,
                                 isVerbatim = lyricData.isVerbatim,
+                                isStatic = lyricData.isStatic,
                                 listState = listState,
                                 isManualScrolling = manualScroll.isBrowsing && listState.isScrollInProgress,
                                 useBlurEffect = !manualScroll.isBrowsing || focusLineVisible,
@@ -374,7 +376,7 @@ fun LyricScreen(
                                 currentPosition = { animatedPosition.toInt() },
                                 onLineClicked = { line ->
                                     manualScroll.onLineSelected()
-                                    playerConnection.player.seekTo(line.start.toLong())
+                                    playerConnection.player.seekTo(line.start.toLong() + lyricOffsetMs())
                                     onToggleControls(true)
                                 },
                                 onLinePressed = { line ->

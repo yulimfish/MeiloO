@@ -191,6 +191,7 @@ fun ClassicImmersiveLayout(
                 LyricScreen(
                     lyricData = lyricLine,
                     playerConnection = stateContainer.playerConnection,
+                    lyricOffsetMs = { stateContainer.playerViewModel.lyricOffsetMs.value },
                     contentPadding = PaddingValues(
                         start = lyricInset,
                         end = (contentEndInset - AppleMusicDimensions.lyricRendererInset).coerceAtLeast(0.dp),

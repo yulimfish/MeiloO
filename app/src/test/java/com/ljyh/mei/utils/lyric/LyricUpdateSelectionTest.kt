@@ -240,7 +240,7 @@ class LyricUpdateSelectionTest {
     }
 
     @Test
-    fun timingOffsetsShiftMainAndBackgroundVocalsWithoutChangingMetadata() {
+    fun positiveUserOffsetMakesEveryLyricTypeEarlierWithoutChangingDurations() {
         val original = timingLyrics()
         val originalMain = original.lyricLine.lines[0] as KaraokeLine.MainKaraokeLine
         val originalBackground = originalMain.accompanimentLines!!.single()
@@ -270,20 +270,20 @@ class LyricUpdateSelectionTest {
             ), standalone)
             assertEquals(originalSynced.copy(start = synced.start, end = synced.end), synced)
 
-            assertEquals(listOf(250 + offset, 1_250 + offset), listOf(main.start, main.end))
-            assertEquals(listOf(400 + offset, 900 + offset), listOf(background.start, background.end))
-            assertEquals(listOf(1_400 + offset, 1_800 + offset), listOf(standalone.start, standalone.end))
-            assertEquals(listOf(1_800 + offset, 2_400 + offset), listOf(synced.start, synced.end))
+            assertEquals(listOf(250 - offset, 1_250 - offset), listOf(main.start, main.end))
+            assertEquals(listOf(400 - offset, 900 - offset), listOf(background.start, background.end))
+            assertEquals(listOf(1_400 - offset, 1_800 - offset), listOf(standalone.start, standalone.end))
+            assertEquals(listOf(1_800 - offset, 2_400 - offset), listOf(synced.start, synced.end))
             for ((before, after) in listOf(
                 originalMain to main, originalBackground to background, originalStandalone to standalone,
             )) {
                 assertEquals(before.duration, after.duration)
                 assertEquals(before.syllables.map {
-                    it.copy(start = it.start + offset, end = it.end + offset)
+                    it.copy(start = it.start - offset, end = it.end - offset)
                 }, after.syllables)
             }
             assertEquals(originalSynced.duration, synced.duration)
-            assertEquals(originalUnchecked.copy(start = 2_400 + offset, end = 2_300 + offset), unchecked)
+            assertEquals(originalUnchecked.copy(start = 2_400 - offset, end = 2_300 - offset), unchecked)
             assertEquals(originalUnchecked.duration, unchecked.duration)
         }
     }
@@ -299,13 +299,13 @@ class LyricUpdateSelectionTest {
         val original = timingLyrics()
         val unchangedSnapshot = timingLyrics()
 
-        val delayed = original.withTimingOffset(500)
-        val advanced = original.withTimingOffset(-500)
+        val advanced = original.withTimingOffset(500)
+        val delayed = original.withTimingOffset(-500)
 
         assertEquals(unchangedSnapshot, original)
-        assertEquals(delayed, original.withTimingOffset(500))
-        assertEquals(advanced, original.withTimingOffset(-500))
-        assertEquals(original, delayed.withTimingOffset(-500))
+        assertEquals(advanced, original.withTimingOffset(500))
+        assertEquals(delayed, original.withTimingOffset(-500))
+        assertEquals(original, advanced.withTimingOffset(-500))
         assertSame(original, original.withTimingOffset(0))
         assertNotSame(original.lyricLine, delayed.lyricLine)
     }
@@ -319,9 +319,9 @@ class LyricUpdateSelectionTest {
             KaraokeSyllable("Background", Int.MAX_VALUE - 100, Int.MAX_VALUE),
         ))
         val cases = listOf(
-            SyncedLine("End", null, Int.MAX_VALUE - 100, Int.MAX_VALUE) to 500,
-            SyncedLine("Start", null, Int.MIN_VALUE, Int.MIN_VALUE + 100) to -500,
-            main.copy(accompanimentLines = listOf(overflowingBackground)) to 500,
+            SyncedLine("End", null, Int.MAX_VALUE - 100, Int.MAX_VALUE) to -500,
+            SyncedLine("Start", null, Int.MIN_VALUE, Int.MIN_VALUE + 100) to 500,
+            main.copy(accompanimentLines = listOf(overflowingBackground)) to -500,
         )
 
         for ((line, offset) in cases) {

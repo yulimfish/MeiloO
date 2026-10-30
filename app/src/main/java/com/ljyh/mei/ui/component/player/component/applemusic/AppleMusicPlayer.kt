@@ -582,6 +582,7 @@ fun AppleMusicPlayer(
                                         )
                                     },
                                     playerConnection = stateContainer.playerConnection,
+                                    lyricOffsetMs = { stateContainer.playerViewModel.lyricOffsetMs.value },
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .padding(top = with(density) { lyricViewportTop.toDp() })

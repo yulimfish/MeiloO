@@ -10,7 +10,9 @@ data class LyricData(
     val isVerbatim: Boolean = false,
     val isPureMusic: Boolean = false,
     val source: LyricSource = LyricSource.Empty,
-    val lyricLine: SyncedLyrics
+    val lyricLine: SyncedLyrics,
+    /** Plain lyrics have no playback timeline and must never highlight or seek by position. */
+    val isStatic: Boolean = false,
 )
 
 
