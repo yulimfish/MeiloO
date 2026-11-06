@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -30,19 +29,19 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.ljyh.mei.data.locallibrary.LocalLibraryFolderRepository
 import com.ljyh.mei.di.AppDatabase
-import com.ljyh.mei.data.localsync.LocalMetadataSync
+import com.ljyh.mei.data.localsync.localLibraryCoordinator
+import com.ljyh.mei.ui.local.LocalNavController
 import com.ljyh.mei.ui.local.LocalPlayerAwareWindowInsets
 import com.ljyh.mei.ui.local.LocalPlayerConnection
 import com.ljyh.mei.ui.navigation.MeiloXPinnedListPage
 import com.ljyh.mei.ui.navigation.meiloxHeaderAction
-import com.ljyh.mei.ui.screen.local.LocalLibraryScanner
 import com.ljyh.mei.ui.screen.local.LocalScanState
+import com.ljyh.mei.ui.screen.Screen
 import io.github.neoruaa.glasmio.icons.SfIcon
 import io.github.neoruaa.glasmio.icons.SfSymbol
 import io.github.neoruaa.glasmio.ui.GlasmioGroupedList
 import io.github.neoruaa.glasmio.ui.GlasmioListRow
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -61,47 +60,22 @@ fun MeiloSongsScreen(
     val database = remember(appContext) { AppDatabase.getDatabase(appContext) }
     val settingsStore = remember(appContext) { MeiloSettingsStore(appContext) }
     val folderRepository = remember(appContext) { LocalLibraryFolderRepository(appContext) }
-    val scanner = remember(appContext, database) { LocalLibraryScanner(appContext, database) }
-    val metadataSync = remember(appContext, database) { LocalMetadataSync(appContext, database) }
-    val syncState by metadataSync.state.collectAsState()
+    val coordinator = remember(appContext) { localLibraryCoordinator(appContext) }
+    val syncState by coordinator.state.collectAsState()
+    val scanState by coordinator.scanState.collectAsState()
     val player = LocalPlayerConnection.current
+    val currentRoute = LocalNavController.current.currentRoute
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
 
     val songs by database.songDao().getLocalSongs().collectAsState(initial = emptyList())
     val settings by settingsStore.settings.collectAsState(initial = MeiloSettings())
     val folders by folderRepository.folders.collectAsState(initial = null)
-    var initialFolders by remember { mutableStateOf<List<com.ljyh.mei.data.locallibrary.LocalLibraryFolder>?>(null) }
-    LaunchedEffect(folders) {
-        if (initialFolders == null) folders?.let { initialFolders = it }
-    }
-    var scanState by remember { mutableStateOf(LocalScanState()) }
-    var scanJob by remember { mutableStateOf<Job?>(null) }
     var folderError by remember { mutableStateOf<String?>(null) }
     var customOrderDraft by remember { mutableStateOf<List<String>?>(null) }
 
-    fun startScan() {
-        if (scanJob?.isActive == true || initialFolders == null) return
-        folderError = null
-        scanState = LocalScanState(isScanning = true)
-        scanJob = scope.launch {
-            try {
-                scanner.scan { progress -> scanState = progress }
-                metadataSync.syncLibrary()
-            } catch (cancelled: CancellationException) {
-                scanState = scanState.copy(
-                    isScanning = false,
-                    error = null,
-                    message = "扫描已停止，已发现的歌曲已保留",
-                )
-                throw cancelled
-            } catch (error: Exception) {
-                scanState = scanState.copy(
-                    isScanning = false,
-                    error = error.message ?: "扫描失败，请重试",
-                )
-            }
-        }
+    LaunchedEffect(currentRoute == Screen.Home.route) {
+        if (currentRoute == Screen.Home.route) coordinator.requestEntryScan()
     }
 
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -110,7 +84,7 @@ fun MeiloSongsScreen(
                 try {
                     folderError = null
                     folderRepository.addFolder(uri)
-                    startScan()
+                    coordinator.requestManualScan()
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (error: Exception) {
@@ -120,9 +94,6 @@ fun MeiloSongsScreen(
         }
     }
 
-    DisposableEffect(Unit) {
-        onDispose { scanJob?.cancel() }
-    }
     LaunchedEffect(settings.songSort) {
         customOrderDraft = null
     }
@@ -170,7 +141,7 @@ fun MeiloSongsScreen(
                 meiloxHeaderAction(
                     key = "meilo-sync-metadata",
                     contentDescription = "同步歌曲信息",
-                    onClick = { scope.launch { metadataSync.syncLibrary(force = true) } },
+                    onClick = coordinator::requestManualSync,
                     enabled = songs.isNotEmpty() && !syncState.isRunning,
                 ) { SfIcon("arrow.clockwise", null) },
             )
@@ -220,14 +191,14 @@ fun MeiloSongsScreen(
                     subtitle = "通过系统文件选择器，仅扫描你选择的目录",
                     systemName = "folder",
                     showTopSeparator = false,
-                    onClick = if (scanState.isScanning) null else ({ folderPicker.launch(null) }),
+                        onClick = if (scanState.isScanning) null else ({ folderPicker.launch(null) }),
                 )
                 if (folders?.isNotEmpty() == true) {
                     GlasmioListRow(
                         title = "重新扫描所选文件夹",
                         subtitle = "${folders?.size ?: 0} 个文件夹",
                         systemName = "arrow.clockwise",
-                        onClick = if (scanState.isScanning) null else (::startScan),
+                        onClick = if (scanState.isScanning) null else coordinator::requestManualScan,
                     )
                 }
                 if (scanState.isScanning) {
@@ -235,12 +206,7 @@ fun MeiloSongsScreen(
                         title = "取消扫描",
                         systemName = "xmark.circle",
                         onClick = {
-                            scanJob?.cancel()
-                            scanState = scanState.copy(
-                                isScanning = false,
-                                error = null,
-                                message = "正在停止扫描，已发现的歌曲已保留",
-                            )
+                            coordinator.cancelScan()
                         },
                     )
                 }
